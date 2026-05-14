@@ -1,0 +1,876 @@
+﻿import { useEffect, useMemo, useState } from 'react';
+import RealtimePriceChart from './components/RealtimePriceChart';
+import BoardTab from './components/BoardTab';
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://sandbar-precinct-quilt.ngrok-free.dev').replace(
+  /\/$/,
+  '',
+);
+const DEFAULT_LOGIN_ID = import.meta.env.VITE_LOGIN_ID || 'user123';
+const DEFAULT_MENU_PATH = '/trading';
+const STOCK_TAB_PLACEHOLDERS = Array.from({ length: 40 }, (_, index) => ({
+  id: `placeholder-${index + 1}`,
+  stockCode: '',
+  stockName: '',
+  currentPrice: 0,
+  changeRate: 0,
+  lastUpdated: null,
+  slot: index + 1,
+  isPlaceholder: true,
+}));
+
+const sideMenu = [
+  { label: '주식 트레이딩', path: '/trading' },
+  { label: '마이페이지', path: '/mypage' },
+  { label: '주식 게임', path: '/stock-game' },
+  { label: '퀴즈', path: '/quiz' },
+  { label: '게시판', path: '/board' },
+  { label: '튜토리얼', path: '/tutorial' },
+];
+
+function getLoginId() {
+  if (typeof window === 'undefined') {
+    return DEFAULT_LOGIN_ID;
+  }
+
+  return (
+    window.sessionStorage.getItem('loginId') ||
+    window.localStorage.getItem('loginId') ||
+    DEFAULT_LOGIN_ID
+  );
+}
+
+function normalizeMenuPath(pathname) {
+  if (!pathname || pathname === '/') {
+    return DEFAULT_MENU_PATH;
+  }
+
+  const matchedMenu = sideMenu.find((item) => pathname === item.path);
+  return matchedMenu?.path || DEFAULT_MENU_PATH;
+}
+
+function buildApiUrl(path) {
+  return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+async function readResponsePayload(response) {
+  const contentType = response.headers.get('content-type') || '';
+
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+
+  return response.text();
+}
+
+async function requestApi(path, { method = 'GET', body, signal } = {}) {
+  let response;
+
+  try {
+    response = await fetch(buildApiUrl(path), {
+      method,
+      signal,
+      credentials: 'include',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw error;
+    }
+
+    throw new Error('서버에 연결하지 못했습니다.');
+  }
+
+  const payload = await readResponsePayload(response);
+
+  if (!response.ok) {
+    const message =
+      typeof payload === 'string'
+        ? payload
+        : payload?.message || payload?.error || '요청 처리 중 오류가 발생했습니다.';
+    throw new Error(message);
+  }
+
+  return payload;
+}
+
+function normalizeTimestamp(value) {
+  if (typeof value === 'number') {
+    return value > 9999999999 ? Math.floor(value / 1000) : value;
+  }
+
+  if (typeof value === 'string') {
+    const numericValue = Number(value);
+
+    if (!Number.isNaN(numericValue)) {
+      return normalizeTimestamp(numericValue);
+    }
+
+    const dateValue = new Date(value).getTime()+9*60*60*1000;
+    return Number.isNaN(dateValue) ? null : Math.floor(dateValue / 1000);
+  }
+
+  return null;
+}
+
+function normalizeStock(rawStock, index) {
+  return {
+    id: rawStock.id ?? `${rawStock.stockCode ?? 'STOCK'}-${index}`,
+    stockCode: String(rawStock.stockCode ?? '').trim(),
+    stockName: String(rawStock.stockName ?? '').trim() || `종목 ${index + 1}`,
+    currentPrice: Number(rawStock.currentPrice ?? 0),
+    changeRate: Number(rawStock.changeRate ?? 0),
+    lastUpdated: rawStock.lastUpdated || null,
+  };
+}
+
+function normalizeHolding(rawHolding) {
+  return {
+    id: rawHolding.id ?? `${rawHolding.stockCode}-${rawHolding.loginId}`,
+    loginId: rawHolding.loginId ?? '',
+    stockCode: String(rawHolding.stockCode ?? '').trim(),
+    stockName: String(rawHolding.stockName ?? '').trim(),
+    quantity: Number(rawHolding.quantity ?? 0),
+    averagePrice: Number(rawHolding.averagePrice ?? 0),
+  };
+}
+
+function normalizeComment(rawComment, index) {
+  return {
+    id: rawComment.commentId ?? rawComment.id ?? `comment-${index}`,
+    content: String(rawComment.content ?? '').trim(),
+    author: String(rawComment.author ?? rawComment.loginId ?? '익명'),
+    createdAt: rawComment.createdAt ?? rawComment.createdDate ?? rawComment.updatedAt ?? null,
+  };
+}
+
+function normalizePostSummary(rawPost, index) {
+  const postId = rawPost.postId ?? rawPost.id ?? `post-${index}`;
+  const likedUsers = Array.isArray(rawPost.likedUsers) ? rawPost.likedUsers : [];
+  const comments = Array.isArray(rawPost.comments) ? rawPost.comments : [];
+
+  return {
+    postId: String(postId),
+    title: String(rawPost.title ?? '').trim() || `게시글 ${index + 1}`,
+    author: String(rawPost.author ?? rawPost.loginId ?? '익명'),
+    content: String(rawPost.content ?? '').trim(),
+    stockCode: String(rawPost.stockCode ?? '').trim(),
+    stockName: String(rawPost.stockName ?? '').trim(),
+    position: String(rawPost.position ?? '').trim(),
+    yield: Number(rawPost.yield ?? 0),
+    viewCount: Number(rawPost.viewCount ?? 0),
+    likedUsers,
+    likeCount: Number(rawPost.likeCount ?? likedUsers.length ?? 0),
+    commentCount: Number(rawPost.commentCount ?? comments.length ?? 0),
+    comments: comments.map(normalizeComment),
+    createdAt: rawPost.createdAt ?? rawPost.createdDate ?? rawPost.updatedAt ?? null,
+  };
+}
+
+function normalizePostDetail(rawPost) {
+  const summary = normalizePostSummary(rawPost, 0);
+
+  return {
+    ...summary,
+    comments: Array.isArray(rawPost.comments) ? rawPost.comments.map(normalizeComment) : [],
+    likedUsers: Array.isArray(rawPost.likedUsers) ? rawPost.likedUsers : [],
+    content: String(rawPost.content ?? '').trim(),
+    likeCount: Number(rawPost.likeCount ?? (Array.isArray(rawPost.likedUsers) ? rawPost.likedUsers.length : 0)),
+    commentCount: Number(rawPost.commentCount ?? (Array.isArray(rawPost.comments) ? rawPost.comments.length : 0)),
+  };
+}
+
+async function fetchStocks(signal) {
+  const payload = await requestApi('/stocks', { signal });
+  return Array.isArray(payload) ? payload.map(normalizeStock) : [];
+}
+
+async function fetchHoldings(loginId, signal) {
+  const payload = await requestApi(`/trade/my/${encodeURIComponent(loginId)}`, { signal });
+  return Array.isArray(payload) ? payload.map(normalizeHolding) : [];
+}
+
+async function submitTrade({ mode, loginId, stockCode, quantity, signal }) {
+  return requestApi(`/trade/${mode}`, {
+    method: 'POST',
+    signal,
+    body: {
+      loginId,
+      stockCode,
+      quantity,
+    },
+  });
+}
+
+async function fetchPosts(signal) {
+  const payload = await requestApi('/posts', { signal });
+  return Array.isArray(payload) ? payload.map(normalizePostSummary) : [];
+}
+
+async function fetchPostDetail(postId, signal) {
+  const payload = await requestApi(`/posts/${encodeURIComponent(postId)}`, { signal });
+  return normalizePostDetail(payload);
+}
+
+async function createPost({ title, content, author, stockCode, stockName, position, yield: yieldRate, signal }) {
+  return requestApi('/posts', {
+    method: 'POST',
+    signal,
+    body: { title, content, author, stockCode, stockName, position, yield: yieldRate },
+  });
+}
+
+async function togglePostLike({ postId, loginId, signal }) {
+  return requestApi(`/posts/${encodeURIComponent(postId)}/like`, {
+    method: 'POST',
+    signal,
+    body: { loginId },
+  });
+}
+
+async function createComment({ postId, content, author, signal }) {
+  return requestApi(`/posts/${encodeURIComponent(postId)}/comments`, {
+    method: 'POST',
+    signal,
+    body: { content, author },
+  });
+}
+
+function mergePriceHistory(previousHistory, stocks) {
+  const nextHistory = { ...previousHistory };
+
+  for (const stock of stocks) {
+    const time = normalizeTimestamp(stock.lastUpdated) ?? Math.floor(Date.now() / 1000);
+    const nextPoint = { time, value: stock.currentPrice };
+    const currentPoints = nextHistory[stock.stockCode] ?? [];
+    const lastPoint = currentPoints[currentPoints.length - 1];
+
+    if (!lastPoint || lastPoint.time !== nextPoint.time || lastPoint.value !== nextPoint.value) {
+      nextHistory[stock.stockCode] = [...currentPoints, nextPoint].slice(-120);
+    }
+  }
+
+  return nextHistory;
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat('ko-KR', {
+    style: 'currency',
+    currency: 'KRW',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatShares(value) {
+  return `${new Intl.NumberFormat('ko-KR').format(value)}주`;
+}
+
+function pushMenuState(path) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (window.location.pathname !== path) {
+    window.history.pushState({}, '', path);
+  }
+}
+
+function HoldingsDialog({ holdings, onClose }) {
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="trade-modal holdings-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="holdings-modal-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="trade-modal-head">
+          <div>
+            <p className="trade-modal-eyebrow">보유 종목</p>
+            <h3 id="holdings-modal-title">내 보유 주식</h3>
+          </div>
+          <button type="button" className="trade-close" onClick={onClose}>
+            ×
+          </button>
+        </div>
+
+        <div className="holdings-list">
+          {holdings.length ? (
+            holdings.map((holding) => (
+              <div key={holding.code} className="holding-row">
+                <div>
+                  <strong>{holding.name}</strong>
+                  <span>{holding.code}</span>
+                </div>
+                <em>{formatShares(holding.quantity)}</em>
+              </div>
+            ))
+          ) : (
+            <p className="holding-empty">현재 보유 중인 주식이 없습니다.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TradeDialog({
+  mode,
+  quantity,
+  currentPrice,
+  companyName,
+  onQuantityChange,
+  onClose,
+  onConfirm,
+  maxQuantity,
+  isSubmitting,
+}) {
+  const title = mode === 'buy' ? '매수' : '매도';
+  const estimatedAmount = Math.max(0, quantity) * currentPrice;
+  const quantityInputProps = typeof maxQuantity === 'number' ? { max: Math.max(1, maxQuantity) } : {};
+
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={isSubmitting ? undefined : onClose}>
+      <div
+        className="trade-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="trade-modal-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="trade-modal-head">
+          <div>
+            <p className="trade-modal-eyebrow">{companyName}</p>
+            <h3 id="trade-modal-title">{title} 주문</h3>
+          </div>
+          <button type="button" className="trade-close" onClick={onClose} disabled={isSubmitting}>
+            ×
+          </button>
+        </div>
+
+        <div className="trade-modal-body">
+          <div className="trade-price-box">
+            <span>현재가</span>
+            <strong>{formatCurrency(currentPrice)}</strong>
+          </div>
+
+          <label className="trade-field">
+            <span>수량</span>
+            <div className="trade-stepper">
+              <button
+                type="button"
+                onClick={() => onQuantityChange(Math.max(1, quantity - 1))}
+                disabled={isSubmitting}
+              >
+                -
+              </button>
+              <input
+                type="number"
+                min="1"
+                value={quantity}
+                onChange={(event) => onQuantityChange(Number(event.target.value))}
+                disabled={isSubmitting}
+                {...quantityInputProps}
+              />
+              <button type="button" onClick={() => onQuantityChange(quantity + 1)} disabled={isSubmitting}>
+                +
+              </button>
+            </div>
+          </label>
+
+          <div className="trade-summary">
+            <span>{'예상 '}{mode === 'buy' ? '매수 금액' : '매도 금액'}</span>
+            <strong>{formatCurrency(estimatedAmount)}</strong>
+          </div>
+
+          <p className="trade-limit">
+            {mode === 'buy'
+              ? '매수 가능 수량은 현재 입력 가격과 잔고 기준으로 계산됩니다.'
+              : '현재 보유 수량 기준으로 매도가 진행됩니다.'}
+          </p>
+        </div>
+
+        <div className="trade-modal-actions">
+          <button type="button" className="secondary" onClick={onClose} disabled={isSubmitting}>
+            취소
+          </button>
+          <button
+            type="button"
+            className={mode === 'buy' ? 'primary buy' : 'primary sell'}
+            onClick={onConfirm}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? '처리 중...' : title + ' 확정'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyTabPanel() {
+  return <section className="empty-tab-panel" aria-hidden="true" />;
+}
+
+function App() {
+  const loginId = getLoginId();
+  const [activeMenuPath, setActiveMenuPath] = useState(() => normalizeMenuPath(window.location.pathname));
+  const [stocks, setStocks] = useState([]);
+  const [holdings, setHoldings] = useState([]);
+  const [priceHistory, setPriceHistory] = useState({});
+  const [selectedStockCode, setSelectedStockCode] = useState('');
+  const [isLoadingStocks, setIsLoadingStocks] = useState(true);
+  const [isLoadingHoldings, setIsLoadingHoldings] = useState(true);
+  const [chartStatusMessage, setChartStatusMessage] = useState('');
+  const [chartStatusTone, setChartStatusTone] = useState('info');
+  const [tradeDialog, setTradeDialog] = useState(null);
+  const [tradeQuantity, setTradeQuantity] = useState(1);
+  const [tradeFeedback, setTradeFeedback] = useState('');
+  const [isHoldingsDialogOpen, setIsHoldingsDialogOpen] = useState(false);
+  const [isSubmittingTrade, setIsSubmittingTrade] = useState(false);
+
+  const stockMap = useMemo(() => Object.fromEntries(stocks.map((stock) => [stock.stockCode, stock])), [stocks]);
+  const displayedStocks = stocks.length
+    ? stocks.map((stock, index) => ({ ...stock, slot: index + 1, isPlaceholder: false }))
+    : STOCK_TAB_PLACEHOLDERS;
+
+  const selectedStock = stocks.find((stock) => stock.stockCode === selectedStockCode) ?? stocks[0] ?? null;
+  const chartPoints = selectedStock ? priceHistory[selectedStock.stockCode] ?? [] : [];
+  const currentPrice = selectedStock?.currentPrice ?? 0;
+
+  const portfolio = useMemo(() => {
+    let totalAssets = 0;
+    let ownedShares = 0;
+    let investedAmount = 0;
+    let profitLoss = 0;
+
+    for (const holding of holdings) {
+      const stock = stockMap[holding.stockCode];
+      const marketPrice = stock?.currentPrice ?? holding.averagePrice;
+      const positionValue = marketPrice * holding.quantity;
+      const costBasis = holding.averagePrice * holding.quantity;
+
+      totalAssets += positionValue;
+      investedAmount += costBasis;
+      ownedShares += holding.quantity;
+      profitLoss += positionValue - costBasis;
+    }
+
+    return {
+      totalAssets,
+      ownedShares,
+      profitLoss,
+      profitLossRate: investedAmount > 0 ? (profitLoss / investedAmount) * 100 : 0,
+    };
+  }, [holdings, stockMap]);
+
+  const selectedOwnedShares =
+    holdings.find((holding) => holding.stockCode === selectedStock?.stockCode)?.quantity ?? 0;
+
+  const holdingsList = useMemo(
+    () =>
+      holdings
+        .filter((holding) => holding.quantity > 0)
+        .map((holding) => ({
+          code: holding.stockCode,
+          name: holding.stockName || stockMap[holding.stockCode]?.stockName || holding.stockCode,
+          quantity: holding.quantity,
+        })),
+    [holdings, stockMap],
+  );
+
+  const boardHoldingOptions = useMemo(
+    () =>
+      holdings
+        .filter((holding) => holding.quantity > 0)
+        .map((holding) => {
+          const stock = stockMap[holding.stockCode];
+          const currentMarketPrice = stock?.currentPrice ?? holding.averagePrice;
+          const yieldRate =
+            holding.averagePrice > 0 ? ((currentMarketPrice - holding.averagePrice) / holding.averagePrice) * 100 : 0;
+
+          return {
+            stockCode: holding.stockCode,
+            stockName: holding.stockName || stock?.stockName || holding.stockCode,
+            quantity: holding.quantity,
+            averagePrice: holding.averagePrice,
+            currentPrice: currentMarketPrice,
+            yieldRate,
+          };
+        }),
+    [holdings, stockMap],
+  );
+
+  const isLoadingPortfolio = isLoadingStocks || isLoadingHoldings;
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveMenuPath(normalizeMenuPath(window.location.pathname));
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedStockCode && stocks.length > 0) {
+      setSelectedStockCode(stocks[0].stockCode);
+      return;
+    }
+
+    if (selectedStockCode && stocks.length > 0 && !stocks.some((stock) => stock.stockCode === selectedStockCode)) {
+      setSelectedStockCode(stocks[0].stockCode);
+    }
+  }, [selectedStockCode, stocks]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let isMounted = true;
+
+    async function loadHoldingsData() {
+      try {
+        const nextHoldings = await fetchHoldings(loginId, controller.signal);
+
+        if (isMounted) {
+          setHoldings(nextHoldings);
+        }
+      } catch (error) {
+        if (isMounted && error.name !== 'AbortError') {
+          console.error(error);
+          setTradeFeedback(error.message || '보유 주식 정보를 불러오지 못했습니다.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingHoldings(false);
+        }
+      }
+    }
+
+    loadHoldingsData();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [loginId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let isMounted = true;
+    let pollingId;
+
+    async function loadStocksData(showSkeleton = false) {
+      if (showSkeleton && isMounted) {
+        setIsLoadingStocks(true);
+      }
+
+      try {
+        const nextStocks = await fetchStocks(controller.signal);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setStocks(nextStocks);
+        setPriceHistory((currentHistory) => mergePriceHistory(currentHistory, nextStocks));
+        setChartStatusMessage('30초 주기로 실시간 시세를 동기화하고 있습니다.');
+        setChartStatusTone('info');
+      } catch (error) {
+        if (isMounted && error.name !== 'AbortError') {
+          console.error(error);
+          setChartStatusMessage(error.message || '주식 시세를 불러오지 못했습니다.');
+          setChartStatusTone('error');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingStocks(false);
+        }
+      }
+    }
+
+    loadStocksData(true);
+    pollingId = window.setInterval(() => {
+      loadStocksData(false);
+    }, 30000);
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+      window.clearInterval(pollingId);
+    };
+  }, []);
+
+  function handleMenuSelect(path) {
+    setActiveMenuPath(path);
+
+    if (path === '/logout') {
+      window.location.href = path;
+      return;
+    }
+
+    pushMenuState(path);
+  }
+
+  function openTradeDialog(mode) {
+    if (!selectedStock) {
+      return;
+    }
+
+    setTradeFeedback('');
+    setTradeDialog(mode);
+    setTradeQuantity(1);
+  }
+
+  function closeTradeDialog() {
+    if (isSubmittingTrade) {
+      return;
+    }
+
+    setTradeDialog(null);
+    setTradeQuantity(1);
+  }
+
+  function handleTradeQuantityChange(value) {
+    if (!Number.isFinite(value)) {
+      setTradeQuantity(1);
+      return;
+    }
+
+    const nextQuantity = Math.max(1, Math.floor(value));
+
+    if (tradeDialog === 'sell') {
+      setTradeQuantity(Math.min(nextQuantity, Math.max(1, selectedOwnedShares)));
+      return;
+    }
+
+    setTradeQuantity(nextQuantity);
+  }
+
+  async function handleConfirmTrade() {
+    if (!tradeDialog || !selectedStock || currentPrice <= 0) {
+      return;
+    }
+
+    if (tradeDialog === 'sell' && tradeQuantity > selectedOwnedShares) {
+      setTradeFeedback('보유 수량보다 많이 매도할 수 없습니다.');
+      return;
+    }
+
+    setIsSubmittingTrade(true);
+    setTradeFeedback('');
+
+    try {
+      const responseMessage = await submitTrade({
+        mode: tradeDialog,
+        loginId,
+        stockCode: selectedStock.stockCode,
+        quantity: tradeQuantity,
+      });
+
+      const nextHoldings = await fetchHoldings(loginId);
+      setHoldings(nextHoldings);
+      setTradeFeedback(
+        typeof responseMessage === 'string'
+          ? responseMessage
+          : `${selectedStock.stockName} ${formatShares(tradeQuantity)} ${tradeDialog === 'buy' ? '매수' : '매도'}가 완료되었습니다.`,
+      );
+      setTradeDialog(null);
+      setTradeQuantity(1);
+    } catch (error) {
+      console.error(error);
+      setTradeFeedback(error.message || '주문 처리 중 오류가 발생했습니다.');
+    } finally {
+      setIsSubmittingTrade(false);
+    }
+  }
+
+  const summaryCards = useMemo(
+    () => [
+      {
+        label: '보유 평가 금액',
+        value: isLoadingPortfolio ? '불러오는 중...' : formatCurrency(portfolio.totalAssets),
+        tone: 'neutral',
+      },
+      {
+        label: '보유 종목',
+        value: isLoadingPortfolio ? '불러오는 중...' : '보유 종목 보기',
+        sub: isLoadingPortfolio ? '' : `${formatShares(portfolio.ownedShares)} 보유`,
+        tone: 'neutral',
+      },
+      {
+        label: '평가 손익',
+        value: isLoadingPortfolio ? '불러오는 중...' : formatCurrency(portfolio.profitLoss),
+        sub: isLoadingPortfolio
+          ? ''
+          : `${portfolio.profitLossRate >= 0 ? '+' : ''}${portfolio.profitLossRate.toFixed(2)}%`,
+        tone: portfolio.profitLoss >= 0 ? 'up' : 'down',
+      },
+    ],
+    [isLoadingPortfolio, portfolio],
+  );
+
+  function renderTradingTab() {
+    return (
+      <>
+        <header className="hero">
+          <div>
+            <p className="eyebrow">초보자도 쉽고 빠르게 익히는 모의 투자 경험</p>
+            <h1>주식 모의투자 트레이딩</h1>
+          </div>
+        </header>
+
+        <div className="symbol-tabs" role="tablist" aria-label="종목 선택">
+          {displayedStocks.map((stock, index) => (
+            <button
+              key={stock.id}
+              className={selectedStock?.stockCode === stock.stockCode ? 'active' : ''}
+              type="button"
+              onClick={() => {
+                if (!stock.isPlaceholder) {
+                  setSelectedStockCode(stock.stockCode);
+                }
+              }}
+              disabled={stock.isPlaceholder}
+            >
+              <span className="symbol-slot-number">{String(stock.slot ?? index + 1).padStart(2, '0')}</span>
+              <span className="symbol-slot-label">
+                {stock.stockName || (isLoadingStocks ? '불러오는 중' : '대기 중')}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="summary-grid">
+          {summaryCards.map((card) => (
+            <article
+              key={card.label}
+              className={card.label === '보유 종목' ? 'summary-card clickable' : 'summary-card'}
+              onClick={card.label === '보유 종목' ? () => setIsHoldingsDialogOpen(true) : undefined}
+              role={card.label === '보유 종목' ? 'button' : undefined}
+              tabIndex={card.label === '보유 종목' ? 0 : undefined}
+              onKeyDown={
+                card.label === '보유 종목'
+                  ? (event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setIsHoldingsDialogOpen(true);
+                      }
+                    }
+                  : undefined
+              }
+            >
+              <div className="card-top">
+                <span>{card.label}</span>
+                <span className="card-dot" />
+              </div>
+              <strong className={card.tone}>{card.value}</strong>
+              {card.sub ? <em className={card.tone}>{card.sub}</em> : null}
+            </article>
+          ))}
+        </div>
+
+        <RealtimePriceChart
+          companyName={selectedStock?.stockName ?? '종목 선택'}
+          points={chartPoints}
+          currentPrice={currentPrice}
+          changeRate={selectedStock?.changeRate ?? 0}
+          isLoading={isLoadingStocks}
+          statusMessage={chartStatusMessage}
+          statusTone={chartStatusTone}
+          tradeFeedback={tradeFeedback}
+          onBuyClick={() => openTradeDialog('buy')}
+          onSellClick={() => openTradeDialog('sell')}
+          disableBuy={isLoadingStocks || !selectedStock || currentPrice <= 0 || isSubmittingTrade}
+          disableSell={
+            isLoadingStocks ||
+            !selectedStock ||
+            currentPrice <= 0 ||
+            selectedOwnedShares < 1 ||
+            isSubmittingTrade
+          }
+        />
+      </>
+    );
+  }
+
+  function renderMainCardContent() {
+    switch (activeMenuPath) {
+      case '/trading':
+        return renderTradingTab();
+      case '/board':
+        return (
+          <BoardTab
+            loginId={loginId}
+            holdings={boardHoldingOptions}
+            fetchPosts={fetchPosts}
+            fetchPostDetail={fetchPostDetail}
+            createPost={createPost}
+            togglePostLike={togglePostLike}
+            createComment={createComment}
+          />
+        );
+      case '/mypage':
+        return <EmptyTabPanel />;
+      case '/stock-game':
+        return <EmptyTabPanel />;
+      case '/quiz':
+        return <EmptyTabPanel />;
+      case '/tutorial':
+        return <EmptyTabPanel />;
+      default:
+        return renderTradingTab();
+    }
+  }
+
+  return (
+    <main className="app-shell">
+      <section className="dashboard">{renderMainCardContent()}</section>
+
+      <aside className="sidebar">
+        <div className="sidebar-inner">
+          <span className="menu-title">메뉴</span>
+          <nav>
+            {sideMenu.map((item) => (
+              <button
+                key={item.path}
+                className={['menu-item', activeMenuPath === item.path ? 'active' : ''].filter(Boolean).join(' ')}
+                type="button"
+                onClick={() => handleMenuSelect(item.path)}
+              >
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </nav>
+
+          <div className="sidebar-footer">
+            <button type="button" className="logout-button" onClick={() => handleMenuSelect('/logout')}>
+              로그아웃
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {tradeDialog ? (
+        <TradeDialog
+          mode={tradeDialog}
+          quantity={tradeQuantity}
+          currentPrice={currentPrice}
+          companyName={selectedStock?.stockName ?? ''}
+          maxQuantity={tradeDialog === 'sell' ? selectedOwnedShares : undefined}
+          isSubmitting={isSubmittingTrade}
+          onQuantityChange={handleTradeQuantityChange}
+          onClose={closeTradeDialog}
+          onConfirm={handleConfirmTrade}
+        />
+      ) : null}
+
+      {isHoldingsDialogOpen ? (
+        <HoldingsDialog holdings={holdingsList} onClose={() => setIsHoldingsDialogOpen(false)} />
+      ) : null}
+    </main>
+  );
+}
+
+export default App;
