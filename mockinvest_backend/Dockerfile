@@ -1,15 +1,13 @@
-# 1단계: 빌드
+# 1단계: 빌드 (Gradle 8.5, JDK 17 사용)
 FROM gradle:8.5-jdk17 AS build
 WORKDIR /app
-# 권한 문제 방지를 위해 소스 복사 후 실행 권한 부여
 COPY . .
 RUN chmod +x ./gradlew
 RUN ./gradlew build -x test --no-daemon
 
-# 2단계: 실행
-FROM openjdk:17-jdk-slim
+# 2단계: 실행 (안정적인 Eclipse Temurin JDK 17 이미지 사용)
+FROM eclipse-temurin:17-jdk-alpine
 WORKDIR /app
 EXPOSE 8080
-# 빌드된 jar 파일 이름을 명확히 지정하거나 와일드카드 사용
 COPY --from=build /app/build/libs/*.jar app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]
