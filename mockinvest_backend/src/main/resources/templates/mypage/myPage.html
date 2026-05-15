@@ -1,0 +1,107 @@
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <link th:href="@{/css/bootstrap.min.css}"
+          href="css/bootstrap.min.css" rel="stylesheet">
+    <title>모의 투자 대시보드</title>
+</head>
+<body>
+<div class="container-fluid">
+    <!-- 상단 네비게이션 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <a class="navbar-brand" href="#">모의 투자</a>
+        <div class="collapse navbar-collapse">
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item active"><a class="nav-link" href="#">대시보드</a></li>
+                <li class="nav-item">
+                    <a class="nav-link" th:href="@{/missions}">투자미션</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" th:href="@{/trade}">매매</a>
+                </li>
+                <li class="nav-item"><a class="nav-link" href="#">내 자산</a></li>
+                <li class="nav-item"><a class="nav-link" href="#">차트/게시판</a></li>
+                <li class="nav-item"><a class="nav-link" href="#">유명인 따라하기</a></li>
+            </ul>
+            <form th:action="@{/logout}" method="post" style="display:inline;">
+                <button class="btn btn-outline-light" type="submit">로그아웃</button>
+            </form>
+
+        </div>
+    </nav>
+
+    <!-- 메인 대시보드 -->
+    <div class="row mt-4">
+        <!-- 좌측: 자산 정보 -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">내 자산 현황</div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col">
+                            <h5>총 자산</h5>
+                            <p class="h4 text-success">₩600,000</p>
+                        </div>
+                        <div class="col">
+                            <h5>총 수익</h5>
+                            <p class="h4 text-info">₩100,000</p>
+                        </div>
+                        <div class="col">
+                            <h5>수익률</h5>
+                            <p class="h4 text-warning">20.00%</p>
+                        </div>
+                        <div class="col">
+                            <h5>미션 완료</h5>
+                            <p class="h4">1/10</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 인기 종목 -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white">인기 종목</div>
+                <table class="table table-striped mb-0">
+                    <thead>
+                    <tr>
+                        <th>종목</th>
+                        <th>분류</th>
+                        <th>현재가</th>
+                        <th>변동률</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>삼성전자</td><td>반도체</td><td>₩79,233</td><td class="text-danger">-0.08%</td>
+                    </tr>
+                    <tr>
+                        <td>네이버</td><td>IT</td><td>₩195,769</td><td class="text-danger">-0.85%</td>
+                    </tr>
+                    <tr>
+                        <td>카카오</td><td>IT</td><td>₩60,765</td><td class="text-success">+0.52%</td>
+                    </tr>
+                    <tr>
+                        <td>현대차</td><td>자동차</td><td>₩210,685</td><td class="text-danger">-1.42%</td>
+                    </tr>
+                    <tr>
+                        <td>SK하이닉스</td><td>반도체</td><td>₩114,851</td><td class="text-success">+1.25%</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 우측: 최근 거래 -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-dark text-white">최근 거래</div>
+                <div class="card-body">
+                    <p>아직 거래 내역이 없습니다</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

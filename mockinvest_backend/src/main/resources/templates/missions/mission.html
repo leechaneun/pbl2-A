@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>투자 미션 수행</title>
+  <link th:href="@{/css/bootstrap.min.css}" href="../css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-5">
+  <div class="text-center mb-4">
+    <h2>투자 학습 미션</h2>
+    <p class="lead">초보자용 투자 학습 미션을 수행하고 가상 자산을 획득하세요!</p>
+  </div>
+
+  <!-- 프로그레스 바 -->
+  <div class="mb-4">
+    <h5>진행 상황</h5>
+    <div class="progress">
+      <div class="progress-bar bg-success" role="progressbar"
+           th:style="'width:' + ${completedPercent} + '%'"
+           th:text="${completedPercent} + '%'">
+      </div>
+    </div>
+    <p class="mt-2">완료된 미션: <span th:text="${completedMissions}"></span>/10</p>
+  </div>
+
+  <!-- 미션 카드 목록 -->
+  <div class="row">
+    <div class="col-md-4 mb-3" th:each="mission : ${missions}">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title" th:text="${mission.title}">미션 제목</h5>
+          <p class="card-text" th:text="${mission.description}">미션 설명</p>
+          <p class="card-text">
+            보상: <span th:text="${mission.reward}"></span> 원
+          </p>
+          <button class="btn btn-primary"
+                  th:if="${!mission.completed}"
+                  th:onclick="|location.href='@{/missions/complete/{id}(id=${mission.id})}'|">
+            미션 수행하기
+          </button>
+          <span class="badge bg-success" th:if="${mission.completed}">완료됨</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 전체 완료 시 뱃지 -->
+  <div class="text-center mt-5" th:if="${completedMissions == 10}">
+    <span class="badge bg-warning text-dark fs-4">🏆 투자 마스터</span>
+    <p class="mt-2">축하합니다! 모든 미션을 완료하여 투자 마스터 뱃지를 획득했습니다.</p>
+  </div>
+</div>
+</body>
+</html>

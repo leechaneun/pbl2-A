@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>모의투자 매수/매도</title>
+  <link th:href="@{/css/bootstrap.min.css}" rel="stylesheet">
+  <style>
+    .price-up { color: red; font-weight: bold; }
+    .price-down { color: blue; font-weight: bold; }
+  </style>
+</head>
+<body>
+<div class="container mt-4">
+  <div class="row">
+    <!-- 왼쪽: 국내/해외 주식 리스트 -->
+    <div class="col-md-6">
+      <h4>주식 리스트 (국내 + 해외)</h4>
+      <table class="table table-hover">
+        <tr th:each="stock : ${stocks}"
+            th:onclick="'selectStock(\\'' + ${stock.stockName} + '\\', \\''
+                        + ${stock.stockCode} + '\\', ' + ${stock.price} + ')'">
+          <td th:text="${stock.stockName}"></td>
+          <td th:text="${stock.price}"></td>
+          <td th:text="${stock.changeRate}"
+              th:classappend="${stock.changeRate > 0} ? 'price-up' : 'price-down'"></td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- 오른쪽: 매수/매도 폼 -->
+    <div class="col-md-6">
+      <h4>매수 / 매도</h4>
+      <form th:action="@{/trade/buy}" method="post" class="mb-3">
+        <input type="text" id="stockName" name="stockName" class="form-control mb-2" required>
+        <input type="text" id="stockCode" name="stockCode" class="form-control mb-2" required>
+        <input type="number" id="price" name="price" class="form-control mb-2" required>
+        <input type="number" name="quantity" class="form-control mb-2" required>
+        <button type="submit" class="btn btn-success">매수하기</button>
+      </form>
+
+      <form th:action="@{/trade/sell}" method="post">
+        <input type="text" id="sellStockName" name="stockName" class="form-control mb-2" required>
+        <input type="text" id="sellStockCode" name="stockCode" class="form-control mb-2" required>
+        <input type="number" id="sellPrice" name="price" class="form-control mb-2" required>
+        <input type="number" name="quantity" class="form-control mb-2" required>
+        <button type="submit" class="btn btn-danger">매도하기</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  function selectStock(name, code, price) {
+    document.getElementById("stockName").value = name;
+    document.getElementById("stockCode").value = code;
+    document.getElementById("price").value = price;
+
+    document.getElementById("sellStockName").value = name;
+    document.getElementById("sellStockCode").value = code;
+    document.getElementById("sellPrice").value = price;
+  }
+</script>
+</body>
+</html>
+
+<input type="text" name="stockName" class="form-control" required>
+    </div>
+    <div class="mb-2">
+      <label>종목코드</label>
+      <input type="text" name="stockCode" class="form-control" required>
+    </div>
+    <div class="mb-2">
+      <label>현재가</label>
+      <input type="number" name="price" class="form-control" required>
+    </div>
+    <div class="mb-2">
+      <label>수량</label>
+      <input type="number" name="quantity" class="form-control" required>
+    </div>
+    <button type="submit" class="btn btn-danger">매도하기</button>
+  </form>
+</div>
+</body>
+</html>

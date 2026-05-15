@@ -1,0 +1,37 @@
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <link th:href="@{/css/bootstrap.min.css}"
+          href="css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container" style="max-width: 700px">
+    <div class="py-5 text-center">
+        <h2>모의 투자 플랫폼</h2>
+        <p class="lead">가상의 투자 경험을 통해 금융 감각을 키워보세요</p>
+    </div>
+    <div class="row mb-4">
+        <div class="col">
+            <button class="w-100 btn btn-success btn-lg" type="button"
+                    th:onclick="|location.href='@{/members/add}'|">
+                회원가입
+            </button>
+        </div>
+        <div class="col">
+            <button class="w-100 btn btn-primary btn-lg"
+                    onclick="location.href='items.html'"
+                    th:onclick="|location.href='@{/login}'|" type="button">
+                로그인
+            </button>
+        </div>
+    </div>
+    <hr class="my-4">
+    <div class="text-center">
+        <h4>오늘의 시장 지수</h4>
+        <p>가상의 주식, 채권, 암호화폐 데이터를 확인하세요</p>
+        <button class="btn btn-outline-info btn-sm">시장 보기</button>
+    </div>
+</div> <!-- /container -->
+</body>
+</html>
