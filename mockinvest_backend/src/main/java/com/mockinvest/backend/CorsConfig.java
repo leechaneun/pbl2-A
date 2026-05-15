@@ -12,7 +12,9 @@ public class CorsConfig implements WebMvcConfigurer {
         registry.addMapping("/**") // 모든 API 경로에 대해
                 .allowedOriginPatterns(
                         "http://localhost:5173",
-                        "https://sandbar-precinct-quilt.ngrok-free.dev" // 앞에 공백이 없는지 꼭 확인하세요!
+                        "https://sandbar-precinct-quilt.ngrok-free.dev",
+                        "https://pbl2-a.onrender.com"
+                        // 앞에 공백이 없는지 꼭 확인하세요!
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // 허용할 HTTP 메서드
                 .allowedHeaders("*") // 모든 헤더 허용
