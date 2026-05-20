@@ -17,13 +17,13 @@ public class Mission {
 
     private String loginId;    // 사용자 아이디
 
-    // 1. 미션 달성 여부 (시스템이 자동으로 true 변경)
+    // 1. 미션 달성 여부 (미션완료 하면 자동으로 true 변경)
     private boolean buyCompleted;        // 매수
     private boolean sellCompleted;       // 매도
     private boolean quizCompleted;       // 퀴즈
     private boolean likeCompleted;       // 좋아요
-    private boolean postCreated;         // 글작성
-    private boolean commentCreated;      // 댓글
+    private boolean postCompleted;         // 글작성
+    private boolean commentCompleted;      // 댓글
     private boolean gameCompleted;       // 게임
 
     // 2. 보상 수령 여부 (사용자가 버튼 클릭 시 true 변경)

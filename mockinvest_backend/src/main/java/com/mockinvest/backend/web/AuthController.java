@@ -76,7 +76,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("로그인이 필요합니다.");
         }
 
-        // [수정] 세션 데이터가 아닌 DB에서 최신 정보를 다시 조회해서 반환
+        // 수정: 세션 데이터 X, DB에서 최신 정보를 다시 조회해서 반환
         Member freshMember = memberService.findByLoginId(loginMember.getLoginId());
         freshMember.setPassword(null); // 보안
         return ResponseEntity.ok(freshMember);

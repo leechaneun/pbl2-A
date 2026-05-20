@@ -28,9 +28,6 @@ public class Member {
 
     private Double balance; // 초기 자산 (예: 10,000,000.0)
 
-    /**
-     * 회원가입 시 필요한 최소 정보를 받는 생성자
-     */
 
     //테스트용
     public Member(String loginId, String password, Double balance) {

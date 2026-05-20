@@ -54,16 +54,16 @@ public class StockCrawlerService {
                 Elements todaylist = doc.select(".new_totalinfo dl>dd");
 
                 if (todaylist.size() > 3) {
-                    // [사용자 제공 코드 기반] 인덱스 파싱
-                    String name = todaylist.get(1).text().split(" ")[1];
+                    // 인덱스 파싱
+                    String name = todaylist.get(1).text().split(" ")[1];//주식명
+
                     String priceLine = todaylist.get(3).text();
                     String[] parts = priceLine.split(" ");
-
-                    // 사용자님이 "된다"고 하신 인덱스 유지
                     String juga = parts[1]; // 현재가
+
                     String rate = (parts.length > 6) ? parts[6] : parts[parts.length - 1]; // 등락률
 
-                    // [추가] 하락 판별: 텍스트 전체(priceLine)나 등락률(rate)에 하락 신호가 있는지 확인
+                    // 수정: 하락 판별
                     boolean isDown = priceLine.contains("하락") || priceLine.contains("▼") || rate.contains("-");
 
                     updateStockPrice(code, name, juga, rate, isDown);
@@ -94,18 +94,18 @@ public class StockCrawlerService {
                 });
 
         try {
-            // 가격 데이터 정제 (숫자 외 제거)
+            // 가격 데이터 정제(숫자 외 제거)
             String cleanJuga = juga.replaceAll("[^0-9]", "");
             Long currentPrice = cleanJuga.isEmpty() ? 0L : Long.parseLong(cleanJuga);
 
-            // 등락률 데이터 정제 (숫자와 소수점만 추출)
+            // 등락률 데이터 정제(숫자와 소수점만 추출)
             String rateValue = rate.replaceAll("[^0-9.]", "");
             if (rateValue.isEmpty() || rateValue.equals(".")) {
                 rateValue = "0.0";
             }
             Double changeRate = Double.parseDouble(rateValue);
 
-            // [핵심] 하락 판별 결과에 따라 부호 부여
+            // 하락 판별 결과에 따라 부호 부여
             if (isDown) {
                 changeRate = -Math.abs(changeRate);
             } else if (rate.contains("0.00")) {

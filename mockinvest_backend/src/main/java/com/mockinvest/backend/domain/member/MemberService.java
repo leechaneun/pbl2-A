@@ -35,9 +35,9 @@ public class MemberService {
         return member;
     }
 
-    // 로그아웃 (세션/토큰 관리 필요 시 컨트롤러에서 처리)
+    // 수정: 로그아웃 컨트롤러에서 처리
     public void logout() {
-        // HttpSession.invalidate() 또는 JWT 토큰 만료 처리
+        // HttpSession.invalidate()
     }
 
     // ID로 회원 조회
@@ -46,7 +46,7 @@ public class MemberService {
                 .orElseThrow(() -> new IllegalArgumentException("회원이 존재하지 않습니다."));
     }
 
-    // 로그인아이디로 회원 조회
+    // 로그인 아이디로 회원 조회
     public Member findByLoginId(String loginId) {
         return memberRepository.findByLoginId(loginId);
     }

@@ -3,9 +3,7 @@ package com.mockinvest.backend.domain.mission;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-/**
- * 미션의 종류와 각 미션별 보상 금액을 정의하는 Enum
- */
+//수정: 여러가지 미션과 보상 enum으로 설정
 @Getter
 @RequiredArgsConstructor
 public enum MissionType {
@@ -17,6 +15,6 @@ public enum MissionType {
     COMMENT("댓글 작성", 5000.0),
     GAME("미니게임 참여", 15000.0);
 
-    private final String description; // 미션 한글 설명
+    private final String description; // 미션 설명
     private final double rewardAmount; // 미션별 보상 금액
 }

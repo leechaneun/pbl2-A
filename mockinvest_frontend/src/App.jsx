@@ -1,8 +1,9 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import RealtimePriceChart from './components/RealtimePriceChart';
 import BoardTab from './components/BoardTab';
+import MyPageTab from './components/MyPageTab';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://sandbar-precinct-quilt.ngrok-free.dev').replace(
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://pbl2-a.onrender.com').replace(
   /\/$/,
   '',
 );
@@ -25,7 +26,7 @@ const sideMenu = [
   { label: '주식 게임', path: '/stock-game' },
   { label: '퀴즈', path: '/quiz' },
   { label: '게시판', path: '/board' },
-  { label: '튜토리얼', path: '/tutorial' },
+  { label: '미션', path: '/tutorial' },
 ];
 
 function getLoginId() {
@@ -107,7 +108,7 @@ function normalizeTimestamp(value) {
       return normalizeTimestamp(numericValue);
     }
 
-    const dateValue = new Date(value).getTime()+9*60*60*1000;
+    const dateValue = new Date(value).getTime()+18*60*60*1000;
     return Number.isNaN(dateValue) ? null : Math.floor(dateValue / 1000);
   }
 
@@ -812,7 +813,7 @@ function App() {
           />
         );
       case '/mypage':
-        return <EmptyTabPanel />;
+        return <MyPageTab apiBaseUrl={API_BASE_URL} loginId={loginId} />;
       case '/stock-game':
         return <EmptyTabPanel />;
       case '/quiz':

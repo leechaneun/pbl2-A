@@ -28,8 +28,8 @@ public class MissionService {
             case SELL -> mission.setSellCompleted(true);
             case QUIZ -> mission.setQuizCompleted(true);
             case LIKE -> mission.setLikeCompleted(true);
-            case POST -> mission.setPostCreated(true);
-            case COMMENT -> mission.setCommentCreated(true);
+            case POST -> mission.setPostCompleted(true);
+            case COMMENT -> mission.setCommentCompleted(true);
             case GAME -> mission.setGameCompleted(true);
         }
 
@@ -63,8 +63,8 @@ public class MissionService {
             case SELL -> m.isSellCompleted() && !m.isSellClaimed();
             case QUIZ -> m.isQuizCompleted() && !m.isQuizClaimed();
             case LIKE -> m.isLikeCompleted() && !m.isLikeClaimed();
-            case POST -> m.isPostCreated() && !m.isPostClaimed();
-            case COMMENT -> m.isCommentCreated() && !m.isCommentClaimed();
+            case POST -> m.isPostCompleted() && !m.isPostClaimed();
+            case COMMENT -> m.isCommentCompleted() && !m.isCommentClaimed();
             case GAME -> m.isGameCompleted() && !m.isGameClaimed();
         };
     }

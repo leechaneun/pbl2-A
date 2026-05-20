@@ -21,7 +21,7 @@ public class MissionController {
     // 미션 상태 조회
     @GetMapping("/{loginId}")
     public ResponseEntity<?> getMissions(@PathVariable String loginId, HttpSession session) {
-        // [개선] 본인 확인 로직
+
         Member loginMember = (Member) session.getAttribute("loginMember");
         if (loginMember == null || !loginMember.getLoginId().equals(loginId)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("본인의 미션 정보만 조회할 수 있습니다.");
@@ -30,12 +30,11 @@ public class MissionController {
         return ResponseEntity.ok(missionService.getMissionStatus(loginId));
     }
 
-    // 보상 수령 요청
+    // 보상 요청
     @PostMapping("/claim")
     public ResponseEntity<String> claimReward(@RequestBody Map<String, String> body, HttpSession session) {
         String loginId = body.get("loginId");
 
-        // [개선] 본인 확인 로직
         Member loginMember = (Member) session.getAttribute("loginMember");
         if (loginMember == null || !loginMember.getLoginId().equals(loginId)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("본인만 보상을 수령할 수 있습니다.");
@@ -52,12 +51,11 @@ public class MissionController {
         }
     }
 
-    // 미션 수동 완료 처리 (필요 시 본인 확인 추가)
+    // 미션 수동 완료 처리 (미션 완료 후 보상 버튼 누르면 보상 지급)
     @PostMapping("/complete")
     public ResponseEntity<?> completeMission(@RequestBody Map<String, String> body, HttpSession session) {
         String loginId = body.get("loginId");
 
-        // [개선] 본인 확인 로직
         Member loginMember = (Member) session.getAttribute("loginMember");
         if (loginMember == null || !loginMember.getLoginId().equals(loginId)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();

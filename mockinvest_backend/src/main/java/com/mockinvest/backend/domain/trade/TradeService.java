@@ -21,9 +21,7 @@ public class TradeService {
     private final TradeRepository tradeRepository;
     private final MissionService missionService;//미션 추가
 
-    /**
-     * 주식 매수 (돈 깎고 주식 추가)
-     */
+    //주식 매수 (돈 깎고 주식 추가)
     @Transactional
     public void buyStock(String loginId, String stockCode, int quantity) {
         // 1. 데이터 조회
@@ -38,11 +36,11 @@ public class TradeService {
             throw new RuntimeException("잔고가 부족합니다. 부족 금액: " + (totalPrice - member.getBalance()));
         }
 
-        // 3. 사용자 잔고 업데이트
+        // 3. 잔고 업데이트
         member.setBalance(member.getBalance() - (double)totalPrice);
         memberRepository.save(member);
 
-        // 4. 보유 현황(Trade) 업데이트
+        // 4. 보유 현황 업데이트
         Trade trade = tradeRepository.findByLoginIdAndStockCode(loginId, stockCode)
                 .orElse(Trade.builder()
                         .loginId(loginId)
@@ -58,9 +56,8 @@ public class TradeService {
         missionService.completeMission(loginId, MissionType.BUY);//미션 추가(매수)
     }
 
-    /**
-     * 주식 매도 (주식 깎고 돈 추가)
-     */
+
+     //주식 매도 (주식 깎고 돈 추가)
     @Transactional
     public void sellStock(String loginId, String stockCode, int quantity) {
         Stock stock = stockRepository.findByStockCode(stockCode)
@@ -85,9 +82,7 @@ public class TradeService {
         missionService.completeMission(loginId,MissionType.SELL);//미션 추가(매도)
     }
 
-    /**
-     * 특정 사용자의 보유 주식 리스트 반환
-     */
+    //사용자의 보유 주식 리스트 반환
     public List<Trade> getMyTrades(String loginId) {
         return tradeRepository.findByLoginId(loginId);
     }
