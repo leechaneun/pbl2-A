@@ -14,14 +14,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
-// @Transactional은 MongoDB 단일 서버 환경에서 롤백을 지원하지 않으므로 제거합니다.
+
 class MemberServiceTest {
 
     @Autowired
     private MemberService memberService;
 
     @Autowired
-    private MemberRepository memberRepository; // DB 정리를 위해 주입
+    private MemberRepository memberRepository;
 
 
 

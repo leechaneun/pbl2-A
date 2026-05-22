@@ -23,7 +23,7 @@ public class SecurityConfig {
                 // 3. 요청 권한 설정 [수정됨: /trade/** 및 /missions/** 추가]
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "user/**",
+                                "/user/**",
                                 "/stocks/**",
                                 "/trade/**",     // 주식 거래 관련 API 허용
                                 "/missions/**",
