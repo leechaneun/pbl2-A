@@ -7,7 +7,7 @@ import MissionTab from './components/MissionTab';
 import StockGameTab from './components/StockGameTab';
 import { isMockApiEnabled, mockCredentials, mockRequestApi } from './mockApi';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://sandbar-precinct-quilt.ngrok-free.dev').replace(
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://pbl2-a.onrender.com').replace(
   /\/$/,
   '',
 );
