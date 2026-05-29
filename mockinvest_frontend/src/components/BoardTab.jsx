@@ -58,7 +58,7 @@ function toSummary(post) {
   };
 }
 
-function ComposeDialog({ loginId, holdings, onClose, onSubmit, isSubmitting }) {
+function ComposePanel({ loginId, holdings, onSubmit, isSubmitting }) {
   const [selectedHoldingCode, setSelectedHoldingCode] = useState(holdings[0]?.stockCode ?? '');
   const [position, setPosition] = useState('매수');
   const [title, setTitle] = useState('');
@@ -91,119 +91,104 @@ function ComposeDialog({ loginId, holdings, onClose, onSubmit, isSubmitting }) {
   }
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={isSubmitting ? undefined : onClose}>
-      <div
-        className="trade-modal board-composer-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="board-compose-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="trade-modal-head">
-          <div>
-            <p className="trade-modal-eyebrow">게시글 작성</p>
-            <h3 id="board-compose-title">글쓰기</h3>
-          </div>
-          <button type="button" className="trade-close" onClick={onClose} disabled={isSubmitting}>
-            ×
-          </button>
+    <div className="board-panel-scroll">
+      <div className="board-panel-head">
+        <div>
+          <h2>글쓰기</h2>
         </div>
+      </div>
 
-        <form className="board-composer-form" onSubmit={handleSubmit}>
-          <label className="board-field">
-            <span>작성자</span>
-            <input type="text" value={loginId} readOnly />
-          </label>
+      <form className="board-composer-form" onSubmit={handleSubmit}>
+        <label className="board-field">
+          <span>작성자</span>
+          <input type="text" value={loginId} readOnly />
+        </label>
 
+        <label className="board-field">
+          <span>보유 종목 선택</span>
+          <select
+            value={selectedHoldingCode}
+            onChange={(event) => setSelectedHoldingCode(event.target.value)}
+            disabled={isSubmitting || !holdings.length}
+          >
+            {holdings.length ? (
+              holdings.map((holding) => (
+                <option key={holding.stockCode} value={holding.stockCode}>
+                  {holding.stockName} ({holding.stockCode})
+                </option>
+              ))
+            ) : (
+              <option value="">보유 종목 없음</option>
+            )}
+          </select>
+        </label>
+
+        {selectedHolding ? (
+          <div className="board-holding-reference">
+            <div>
+              <span>보유 수량</span>
+              <strong>{selectedHolding.quantity}주</strong>
+            </div>
+            <div>
+              <span>평균 단가</span>
+              <strong>{formatCurrency(selectedHolding.averagePrice)}</strong>
+            </div>
+            <div>
+              <span>현재가</span>
+              <strong>{formatCurrency(selectedHolding.currentPrice)}</strong>
+            </div>
+            <div>
+              <span>현재 수익률</span>
+              <strong>{formatYield(selectedHolding.yieldRate)}</strong>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="board-field-row">
           <label className="board-field">
-            <span>보유 종목 선택</span>
-            <select
-              value={selectedHoldingCode}
-              onChange={(event) => setSelectedHoldingCode(event.target.value)}
-              disabled={isSubmitting || !holdings.length}
-            >
-              {holdings.length ? (
-                holdings.map((holding) => (
-                  <option key={holding.stockCode} value={holding.stockCode}>
-                    {holding.stockName} ({holding.stockCode})
-                  </option>
-                ))
-              ) : (
-                <option value="">보유 종목 없음</option>
-              )}
+            <span>포지션</span>
+            <select value={position} onChange={(event) => setPosition(event.target.value)} disabled={isSubmitting}>
+              <option value="매수">매수</option>
+              <option value="매도">매도</option>
             </select>
           </label>
 
-          {selectedHolding ? (
-            <div className="board-holding-reference">
-              <div>
-                <span>보유 수량</span>
-                <strong>{selectedHolding.quantity}주</strong>
-              </div>
-              <div>
-                <span>평균 단가</span>
-                <strong>{formatCurrency(selectedHolding.averagePrice)}</strong>
-              </div>
-              <div>
-                <span>현재가</span>
-                <strong>{formatCurrency(selectedHolding.currentPrice)}</strong>
-              </div>
-              <div>
-                <span>현재 수익률</span>
-                <strong>{formatYield(selectedHolding.yieldRate)}</strong>
-              </div>
-            </div>
-          ) : null}
-
-          <div className="board-field-row">
-            <label className="board-field">
-              <span>포지션</span>
-              <select value={position} onChange={(event) => setPosition(event.target.value)} disabled={isSubmitting}>
-                <option value="매수">매수</option>
-                <option value="매도">매도</option>
-              </select>
-            </label>
-
-            <label className="board-field">
-              <span>참조 수익률</span>
-              <input type="text" value={selectedHolding ? formatYield(selectedHolding.yieldRate) : '-'} readOnly />
-            </label>
-          </div>
-
           <label className="board-field">
-            <span>제목</span>
-            <input
-              type="text"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="제목을 입력하세요"
-              disabled={isSubmitting}
-            />
+            <span>참조 수익률</span>
+            <input type="text" value={selectedHolding ? formatYield(selectedHolding.yieldRate) : '-'} readOnly />
           </label>
+        </div>
 
-          <label className="board-field">
-            <span>내용</span>
-            <textarea
-              rows="8"
-              value={content}
-              onChange={(event) => setContent(event.target.value)}
-              placeholder="매매 근거와 의견을 입력하세요"
-              disabled={isSubmitting}
-            />
-          </label>
+        <label className="board-field">
+          <span>제목</span>
+          <input
+            type="text"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="제목을 입력하세요"
+            disabled={isSubmitting}
+          />
+        </label>
 
-          {errorMessage ? <p className="board-inline-feedback error">{errorMessage}</p> : null}
+        <label className="board-field">
+          <span>내용</span>
+          <textarea
+            rows="10"
+            value={content}
+            onChange={(event) => setContent(event.target.value)}
+            placeholder="매매 근거와 의견을 입력하세요"
+            disabled={isSubmitting}
+          />
+        </label>
 
-          <div className="trade-modal-actions">
-            <button type="button" className="secondary" onClick={onClose} disabled={isSubmitting}>
-              취소
-            </button>
-            <button type="submit" className="primary buy" disabled={isSubmitting}>
-              {isSubmitting ? '등록 중...' : '등록'}
-            </button>
-          </div>
-        </form>
-      </div>
+        {errorMessage ? <p className="board-inline-feedback error">{errorMessage}</p> : null}
+
+        <div className="trade-modal-actions">
+          <button type="submit" className="primary buy" disabled={isSubmitting}>
+            {isSubmitting ? '등록 중...' : '등록'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -230,6 +215,8 @@ export default function BoardTab({
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [feedbackMessage, setFeedbackMessage] = useState('');
+  const isComposeView = isComposerOpen;
+  const isDetailView = Boolean(selectedPostId);
 
   const filteredPosts = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
@@ -251,7 +238,7 @@ export default function BoardTab({
     try {
       const nextPosts = await fetchPosts(signal);
       setPosts(nextPosts);
-      setSelectedPostId((current) => current || nextPosts[0]?.postId || '');
+      setSelectedPostId((current) => (current && nextPosts.some((post) => post.postId === current) ? current : ''));
     } catch (error) {
       if (error.name !== 'AbortError') {
         setErrorMessage(getErrorMessage(error, '게시글 목록을 불러오지 못했습니다.'));
@@ -398,136 +385,158 @@ export default function BoardTab({
           <p className="eyebrow">커뮤니티</p>
           <h1>게시판</h1>
         </div>
-        <button type="button" className="board-compose-button" onClick={() => setIsComposerOpen(true)}>
-          글쓰기
+        <button
+          type="button"
+          className="board-compose-button"
+          onClick={() => {
+            if (isDetailView || isComposeView) {
+              setSelectedPostId('');
+              setSelectedPost(null);
+              setIsComposerOpen(false);
+              return;
+            }
+
+            setIsComposerOpen(true);
+          }}
+        >
+          {isDetailView || isComposeView ? '뒤로가기' : '글쓰기'}
         </button>
       </header>
 
       <section className="board-detail-panel board-full-panel">
-        <form className="board-search" onSubmit={handleSearchSubmit}>
-          <input
-            type="search"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="제목, 작성자, 종목 검색"
-          />
-        </form>
+        {!isDetailView && !isComposeView ? (
+          <form className="board-search" onSubmit={handleSearchSubmit}>
+            <input
+              type="search"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="제목, 작성자, 종목 검색"
+            />
+          </form>
+        ) : null}
 
         {errorMessage ? <p className="board-inline-feedback error">{errorMessage}</p> : null}
         {feedbackMessage ? <p className="board-inline-feedback">{feedbackMessage}</p> : null}
 
-        <div className="board-list">
-          {isLoadingPosts ? (
-            <div className="board-empty-state">
-              <strong>게시글을 불러오는 중입니다.</strong>
+        {isComposeView ? (
+          <ComposePanel
+            loginId={loginId}
+            holdings={holdings}
+            onSubmit={handleCreatePost}
+            isSubmitting={isSubmittingPost}
+          />
+        ) : !selectedPostId ? (
+          <div className="board-panel-scroll">
+            <div className="board-list">
+              {isLoadingPosts ? (
+                <div className="board-empty-state">
+                  <strong>게시글을 불러오는 중입니다.</strong>
+                </div>
+              ) : filteredPosts.length ? (
+                filteredPosts.map((post) => (
+                  <button
+                    key={post.postId}
+                    type="button"
+                    className={`board-post-card board-title-item ${selectedPostId === post.postId ? 'active' : ''}`}
+                    onClick={() => setSelectedPostId(post.postId)}
+                  >
+                    <div className="board-post-card-top">
+                      <span>{post.author || '익명'}</span>
+                      <span>{formatDate(post.createdAt)}</span>
+                    </div>
+                    <strong>{post.title}</strong>
+                  </button>
+                ))
+              ) : (
+                <div className="board-empty-state">
+                  <strong>표시할 게시글이 없습니다.</strong>
+                </div>
+              )}
             </div>
-          ) : filteredPosts.length ? (
-            filteredPosts.map((post) => (
-              <button
-                key={post.postId}
-                type="button"
-                className={`board-post-card board-title-item ${selectedPostId === post.postId ? 'active' : ''}`}
-                onClick={() => setSelectedPostId(post.postId)}
-              >
-                <strong>{post.title}</strong>
-              </button>
-            ))
-          ) : (
-            <div className="board-empty-state">
-              <strong>표시할 게시글이 없습니다.</strong>
-            </div>
-          )}
-        </div>
-
-        {isLoadingDetail ? (
+          </div>
+        ) : isLoadingDetail ? (
           <div className="board-empty-state board-empty-fill">
             <strong>상세 내용을 불러오는 중입니다.</strong>
           </div>
         ) : selectedPost ? (
           <>
-            <div className="board-detail-head">
-              <div>
-                <h2>{selectedPost.title}</h2>
-                <p className="board-detail-date">{`${selectedPost.author} · ${formatDate(selectedPost.createdAt)}`}</p>
+            <div className="board-panel-scroll">
+              <div className="board-detail-head">
+                <div>
+                  <h2>{selectedPost.title}</h2>
+                  <p className="board-detail-date">{`${selectedPost.author} · ${formatDate(selectedPost.createdAt)}`}</p>
+                </div>
+
+                <div className="board-detail-metrics">
+                  <span>조회 {selectedPost.viewCount ?? 0}</span>
+                  <span>추천 {selectedPost.likeCount ?? 0}</span>
+                  <span>댓글 {selectedPost.comments?.length ?? 0}</span>
+                </div>
               </div>
 
-              <div className="board-detail-metrics">
-                <span>조회 {selectedPost.viewCount ?? 0}</span>
-                <span>추천 {selectedPost.likeCount ?? 0}</span>
-                <span>댓글 {selectedPost.comments?.length ?? 0}</span>
-              </div>
-            </div>
+              <div className="board-actions">
+                <div className="board-post-card-meta">
+                  <span>{selectedPost.position || '일반'}</span>
+                  <span>{selectedPost.stockName || '종목 없음'}</span>
+                  <span>{selectedPost.stockCode || '-'}</span>
+                  <span>{formatYield(selectedPost.yield ?? 0)}</span>
+                </div>
 
-            <div className="board-actions">
-              <div className="board-post-card-meta">
-                <span>{selectedPost.position || '일반'}</span>
-                <span>{selectedPost.stockName || '종목 없음'}</span>
-                <span>{selectedPost.stockCode || '-'}</span>
-                <span>{formatYield(selectedPost.yield ?? 0)}</span>
-              </div>
-
-              <button
-                type="button"
-                className={`board-like-button ${selectedLiked ? 'active' : ''}`}
-                onClick={handleToggleLike}
-                disabled={isSubmittingLike}
-              >
-                {isSubmittingLike ? '처리 중...' : `추천 ${selectedPost.likeCount ?? 0}`}
-              </button>
-            </div>
-
-            <div className="board-content-box board-content-fill">
-              <p>{selectedPost.content || '내용이 없습니다.'}</p>
-            </div>
-
-            <div className="board-comments-block">
-              <div className="board-comments-head">
-                <h3>댓글</h3>
-                <span className="board-liked-users">{selectedPost.comments?.length ?? 0}개</span>
-              </div>
-
-              <div className="board-comments-list">
-                {selectedPost.comments?.length ? (
-                  selectedPost.comments.map((comment) => (
-                    <article key={comment.id} className="board-comment-card">
-                      <strong>{comment.author}</strong>
-                      <span className="board-detail-date">{formatDate(comment.createdAt)}</span>
-                      <p>{comment.content}</p>
-                    </article>
-                  ))
-                ) : (
-                  <p className="board-empty">아직 댓글이 없습니다.</p>
-                )}
-              </div>
-
-              <form className="board-comment-form" onSubmit={handleCreateComment}>
-                <textarea
-                  rows="3"
-                  value={commentDraft}
-                  onChange={(event) => setCommentDraft(event.target.value)}
-                  placeholder="댓글을 입력하세요"
-                  disabled={isSubmittingComment}
-                />
-                <button type="submit" disabled={isSubmittingComment}>
-                  {isSubmittingComment ? '등록 중...' : '댓글 등록'}
+                <button
+                  type="button"
+                  className={`board-like-button ${selectedLiked ? 'active' : ''}`}
+                  onClick={handleToggleLike}
+                  disabled={isSubmittingLike}
+                >
+                  {isSubmittingLike ? '처리 중...' : `추천 ${selectedPost.likeCount ?? 0}`}
                 </button>
-              </form>
+              </div>
+
+              <div className="board-content-box">
+                <p>{selectedPost.content || '내용이 없습니다.'}</p>
+              </div>
+
+              <div className="board-comments-block">
+                <div className="board-comments-head">
+                  <h3>댓글</h3>
+                  <span className="board-liked-users">{selectedPost.comments?.length ?? 0}개</span>
+                </div>
+
+                <div className="board-comments-list">
+                  {selectedPost.comments?.length ? (
+                    selectedPost.comments.map((comment, index) => (
+                      <article key={comment.id ?? `${comment.author}-${comment.createdAt ?? index}`} className="board-comment-card">
+                        <strong>{comment.author}</strong>
+                        <span className="board-detail-date">{formatDate(comment.createdAt)}</span>
+                        <p>{comment.content}</p>
+                      </article>
+                    ))
+                  ) : (
+                    <p className="board-empty">아직 댓글이 없습니다.</p>
+                  )}
+                </div>
+
+                <form className="board-comment-form" onSubmit={handleCreateComment}>
+                  <textarea
+                    rows="3"
+                    value={commentDraft}
+                    onChange={(event) => setCommentDraft(event.target.value)}
+                    placeholder="댓글을 입력하세요"
+                    disabled={isSubmittingComment}
+                  />
+                  <button type="submit" disabled={isSubmittingComment}>
+                    {isSubmittingComment ? '등록 중...' : '댓글 등록'}
+                  </button>
+                </form>
+              </div>
             </div>
           </>
         ) : (
-          <section className="empty-tab-panel" aria-hidden="true" />
+          <div className="board-empty-state board-empty-fill">
+            <strong>게시글을 선택해 주세요.</strong>
+          </div>
         )}
       </section>
-
-      {isComposerOpen ? (
-        <ComposeDialog
-          loginId={loginId}
-          holdings={holdings}
-          onClose={() => setIsComposerOpen(false)}
-          onSubmit={handleCreatePost}
-          isSubmitting={isSubmittingPost}
-        />
-      ) : null}
     </section>
   );
 }

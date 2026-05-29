@@ -138,27 +138,35 @@ export default function RealtimePriceChart({
     const canIncrementallyUpdate =
       previousPoints.length > 0 &&
       points.length >= previousPoints.length &&
-      points.slice(0, previousPoints.length - 1).every((point, index) => {
+      points.slice(0, previousPoints.length).every((point, index) => {
         const previousPoint = previousPoints[index];
         return previousPoint?.time === point.time && previousPoint?.value === point.value;
-      });
+      }) &&
+      (nextLastPoint?.time ?? 0) >= (previousLastPoint?.time ?? 0);
 
-    if (canIncrementallyUpdate) {
-      if (hasPointChanged(previousLastPoint, nextLastPoint)) {
-        seriesRef.current.update(nextLastPoint);
-      }
-
-      if (points.length > previousPoints.length) {
-        for (let index = previousPoints.length; index < points.length; index += 1) {
-          seriesRef.current.update(points[index]);
+    try {
+      if (canIncrementallyUpdate) {
+        if (hasPointChanged(previousLastPoint, nextLastPoint)) {
+          seriesRef.current.update(nextLastPoint);
         }
+
+        if (points.length > previousPoints.length) {
+          for (let index = previousPoints.length; index < points.length; index += 1) {
+            seriesRef.current.update(points[index]);
+          }
+        }
+      } else {
+        seriesRef.current.setData(points);
+        chartRef.current?.timeScale().fitContent();
       }
-    } else {
+
+      previousPointsRef.current = points;
+    } catch (error) {
+      // Fallback to full reset when chart library rejects an out-of-order incremental update.
       seriesRef.current.setData(points);
       chartRef.current?.timeScale().fitContent();
+      previousPointsRef.current = points;
     }
-
-    previousPointsRef.current = points;
   }, [points]);
 
   const latestPoint = points[points.length - 1];

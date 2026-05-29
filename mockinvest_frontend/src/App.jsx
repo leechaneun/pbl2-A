@@ -2,12 +2,15 @@
 import RealtimePriceChart from './components/RealtimePriceChart';
 import BoardTab from './components/BoardTab';
 import MyPageTab from './components/MyPageTab';
+import QuizTab from './components/QuizTab';
+import MissionTab from './components/MissionTab';
+import StockGameTab from './components/StockGameTab';
+import { isMockApiEnabled, mockCredentials, mockRequestApi } from './mockApi';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://pbl2-a.onrender.com').replace(
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://sandbar-precinct-quilt.ngrok-free.dev').replace(
   /\/$/,
   '',
 );
-const DEFAULT_LOGIN_ID = import.meta.env.VITE_LOGIN_ID || 'user123';
 const DEFAULT_MENU_PATH = '/trading';
 const STOCK_TAB_PLACEHOLDERS = Array.from({ length: 40 }, (_, index) => ({
   id: `placeholder-${index + 1}`,
@@ -28,18 +31,6 @@ const sideMenu = [
   { label: '게시판', path: '/board' },
   { label: '미션', path: '/tutorial' },
 ];
-
-function getLoginId() {
-  if (typeof window === 'undefined') {
-    return DEFAULT_LOGIN_ID;
-  }
-
-  return (
-    window.sessionStorage.getItem('loginId') ||
-    window.localStorage.getItem('loginId') ||
-    DEFAULT_LOGIN_ID
-  );
-}
 
 function normalizeMenuPath(pathname) {
   if (!pathname || pathname === '/') {
@@ -65,6 +56,10 @@ async function readResponsePayload(response) {
 }
 
 async function requestApi(path, { method = 'GET', body, signal } = {}) {
+  if (isMockApiEnabled) {
+    return mockRequestApi(path, { method, body, signal });
+  }
+
   let response;
 
   try {
@@ -90,7 +85,9 @@ async function requestApi(path, { method = 'GET', body, signal } = {}) {
       typeof payload === 'string'
         ? payload
         : payload?.message || payload?.error || '요청 처리 중 오류가 발생했습니다.';
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
   }
 
   return payload;
@@ -108,7 +105,7 @@ function normalizeTimestamp(value) {
       return normalizeTimestamp(numericValue);
     }
 
-    const dateValue = new Date(value).getTime()+18*60*60*1000;
+    const dateValue = new Date(value).getTime();
     return Number.isNaN(dateValue) ? null : Math.floor(dateValue / 1000);
   }
 
@@ -236,6 +233,129 @@ async function createComment({ postId, content, author, signal }) {
     signal,
     body: { content, author },
   });
+}
+
+async function fetchQuizzes(signal, quizType) {
+  const normalizedType = String(quizType ?? '').trim();
+  const encodedType = encodeURIComponent(normalizedType);
+  const endpointCandidates = normalizedType
+    ? [
+        `/quizzes?type=${encodedType}`,
+        `/quizzes?quizType=${encodedType}`,
+        `/quizzes?category=${encodedType}`,
+        `/quiz?type=${encodedType}`,
+        `/quiz/list?type=${encodedType}`,
+        `/quizzes/${encodedType}`,
+        `/quiz/${encodedType}`,
+      ]
+    : ['/quizzes', '/quiz', '/quiz/list'];
+  let latestError;
+
+  for (const endpoint of endpointCandidates) {
+    try {
+      const payload = await requestApi(endpoint, { signal });
+      if (Array.isArray(payload)) {
+        return payload;
+      }
+
+      const nestedList =
+        (Array.isArray(payload?.quizzes) && payload.quizzes) ||
+        (Array.isArray(payload?.quizList) && payload.quizList) ||
+        (Array.isArray(payload?.items) && payload.items) ||
+        (Array.isArray(payload?.data) && payload.data);
+
+      if (nestedList) {
+        return nestedList;
+      }
+    } catch (error) {
+      latestError = error;
+    }
+  }
+
+  throw latestError || new Error('퀴즈를 불러오지 못했습니다.');
+}
+
+async function fetchMissions(signal) {
+  return requestApi('/missions', { signal });
+}
+
+async function registerUser({ loginId, password, signal }) {
+  return requestApi('/user/register', {
+    method: 'POST',
+    signal,
+    body: { loginId, password },
+  });
+}
+
+async function loginUser({ loginId, password, signal }) {
+  return requestApi('/user/login', {
+    method: 'POST',
+    signal,
+    body: { loginId, password },
+  });
+}
+
+async function fetchCurrentUser(signal) {
+  return requestApi('/user/me', { signal });
+}
+
+async function logoutUser(signal) {
+  return requestApi('/user/logout', {
+    method: 'POST',
+    signal,
+  });
+}
+
+async function completeMission(missionType, signal) {
+  const bodyCandidates = [
+    { missionType },
+    { type: missionType },
+    { mission_type: missionType },
+  ];
+
+  let latestError;
+  for (const body of bodyCandidates) {
+    try {
+      return await requestApi('/missions/complete', { method: 'POST', body, signal });
+    } catch (error) {
+      latestError = error;
+    }
+  }
+
+  try {
+    return await requestApi(`/missions/complete?missionType=${encodeURIComponent(missionType)}`, {
+      method: 'POST',
+      signal,
+    });
+  } catch (error) {
+    throw latestError || error;
+  }
+}
+
+async function claimMission(missionType, signal) {
+  const bodyCandidates = [
+    { missionType },
+    { type: missionType },
+    { mission_type: missionType },
+  ];
+
+  let latestError;
+  for (const body of bodyCandidates) {
+    try {
+      return await requestApi('/missions/claim', { method: 'POST', body, signal });
+    } catch (error) {
+      latestError = error;
+    }
+  }
+
+  try {
+    return await requestApi(`/missions/claim?missionType=${encodeURIComponent(missionType)}`, {
+      method: 'POST',
+      signal,
+    });
+  } catch (error) {
+    throw latestError || error;
+  }
 }
 
 function mergePriceHistory(previousHistory, stocks) {
@@ -415,9 +535,84 @@ function EmptyTabPanel() {
   return <section className="empty-tab-panel" aria-hidden="true" />;
 }
 
+function AuthScreen({
+  mode,
+  form,
+  errorMessage,
+  helperMessage,
+  isSubmitting,
+  onModeChange,
+  onFormChange,
+  onSubmit,
+}) {
+  return (
+    <main className="auth-shell">
+      <section className="auth-card">
+        <div className="auth-mode-tabs" role="tablist" aria-label="인증 모드">
+          <button type="button" className={mode === 'login' ? 'active' : ''} onClick={() => onModeChange('login')}>
+            로그인
+          </button>
+          <button
+            type="button"
+            className={mode === 'register' ? 'active' : ''}
+            onClick={() => onModeChange('register')}
+          >
+            회원가입
+          </button>
+        </div>
+
+        <form className="auth-form" onSubmit={onSubmit}>
+          <label className="auth-field">
+            <span>아이디</span>
+            <input
+              type="text"
+              name="loginId"
+              autoComplete="username"
+              value={form.loginId}
+              onChange={onFormChange}
+              disabled={isSubmitting}
+              placeholder="아이디를 입력하세요"
+            />
+          </label>
+
+          <label className="auth-field">
+            <span>비밀번호</span>
+            <input
+              type="password"
+              name="password"
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              value={form.password}
+              onChange={onFormChange}
+              disabled={isSubmitting}
+              placeholder="비밀번호를 입력하세요"
+            />
+          </label>
+
+          {errorMessage ? <p className="auth-feedback error">{errorMessage}</p> : null}
+          {!errorMessage && helperMessage ? <p className="auth-feedback">{helperMessage}</p> : null}
+
+          <button type="submit" className="auth-submit-button" disabled={isSubmitting}>
+            {isSubmitting ? '처리 중...' : mode === 'login' ? '로그인' : '회원가입'}
+          </button>
+        </form>
+      </section>
+    </main>
+  );
+}
+
 function App() {
-  const loginId = getLoginId();
   const [activeMenuPath, setActiveMenuPath] = useState(() => normalizeMenuPath(window.location.pathname));
+  const [authMode, setAuthMode] = useState('login');
+  const [authForm, setAuthForm] = useState({ loginId: '', password: '' });
+  const [authUser, setAuthUser] = useState(null);
+  const [authErrorMessage, setAuthErrorMessage] = useState('');
+  const [authHelperMessage, setAuthHelperMessage] = useState(() =>
+    isMockApiEnabled
+      ? `개발용 Mock 모드입니다. 기본 계정: ${mockCredentials.loginId} / ${mockCredentials.password}`
+      : '',
+  );
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
   const [stocks, setStocks] = useState([]);
   const [holdings, setHoldings] = useState([]);
   const [priceHistory, setPriceHistory] = useState({});
@@ -431,6 +626,8 @@ function App() {
   const [tradeFeedback, setTradeFeedback] = useState('');
   const [isHoldingsDialogOpen, setIsHoldingsDialogOpen] = useState(false);
   const [isSubmittingTrade, setIsSubmittingTrade] = useState(false);
+  const loginId = authUser?.loginId ?? '';
+  const isAuthenticated = Boolean(authUser?.loginId);
 
   const stockMap = useMemo(() => Object.fromEntries(stocks.map((stock) => [stock.stockCode, stock])), [stocks]);
   const displayedStocks = stocks.length
@@ -507,6 +704,49 @@ function App() {
   const isLoadingPortfolio = isLoadingStocks || isLoadingHoldings;
 
   useEffect(() => {
+    const controller = new AbortController();
+    let isMounted = true;
+
+    async function restoreSession() {
+      setIsCheckingAuth(true);
+      setAuthErrorMessage('');
+
+      try {
+        const user = await fetchCurrentUser(controller.signal);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setAuthUser(user);
+        setAuthForm({ loginId: String(user?.loginId ?? ''), password: '' });
+        setAuthHelperMessage('');
+      } catch (error) {
+        if (!isMounted || error.name === 'AbortError') {
+          return;
+        }
+
+        if (error.status !== 401) {
+          setAuthErrorMessage(error.message || '로그인 상태를 확인하지 못했습니다.');
+        }
+
+        setAuthUser(null);
+      } finally {
+        if (isMounted) {
+          setIsCheckingAuth(false);
+        }
+      }
+    }
+
+    restoreSession();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, []);
+
+  useEffect(() => {
     const handlePopState = () => {
       setActiveMenuPath(normalizeMenuPath(window.location.pathname));
     };
@@ -527,10 +767,18 @@ function App() {
   }, [selectedStockCode, stocks]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setHoldings([]);
+      setIsLoadingHoldings(false);
+      return undefined;
+    }
+
     const controller = new AbortController();
     let isMounted = true;
 
     async function loadHoldingsData() {
+      setIsLoadingHoldings(true);
+
       try {
         const nextHoldings = await fetchHoldings(loginId, controller.signal);
 
@@ -540,6 +788,9 @@ function App() {
       } catch (error) {
         if (isMounted && error.name !== 'AbortError') {
           console.error(error);
+          if (error.status === 401) {
+            setAuthUser(null);
+          }
           setTradeFeedback(error.message || '보유 주식 정보를 불러오지 못했습니다.');
         }
       } finally {
@@ -558,6 +809,16 @@ function App() {
   }, [loginId]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setStocks([]);
+      setPriceHistory({});
+      setSelectedStockCode('');
+      setChartStatusMessage('');
+      setChartStatusTone('info');
+      setIsLoadingStocks(false);
+      return undefined;
+    }
+
     const controller = new AbortController();
     let isMounted = true;
     let pollingId;
@@ -581,6 +842,9 @@ function App() {
       } catch (error) {
         if (isMounted && error.name !== 'AbortError') {
           console.error(error);
+          if (error.status === 401) {
+            setAuthUser(null);
+          }
           setChartStatusMessage(error.message || '주식 시세를 불러오지 못했습니다.');
           setChartStatusTone('error');
         }
@@ -601,16 +865,80 @@ function App() {
       controller.abort();
       window.clearInterval(pollingId);
     };
-  }, []);
+  }, [isAuthenticated]);
 
-  function handleMenuSelect(path) {
-    setActiveMenuPath(path);
+  function handleAuthFormChange(event) {
+    const { name, value } = event.target;
+    setAuthForm((current) => ({ ...current, [name]: value }));
+  }
 
-    if (path === '/logout') {
-      window.location.href = path;
+  function handleAuthModeChange(nextMode) {
+    setAuthMode(nextMode);
+    setAuthErrorMessage('');
+    setAuthHelperMessage('');
+  }
+
+  async function handleAuthSubmit(event) {
+    event.preventDefault();
+
+    const nextLoginId = authForm.loginId.trim();
+    const nextPassword = authForm.password.trim();
+
+    if (!nextLoginId || !nextPassword) {
+      setAuthErrorMessage('아이디와 비밀번호를 모두 입력해 주세요.');
       return;
     }
 
+    setIsSubmittingAuth(true);
+    setAuthErrorMessage('');
+    setAuthHelperMessage('');
+
+    try {
+      if (authMode === 'register') {
+        await registerUser({ loginId: nextLoginId, password: nextPassword });
+        setAuthHelperMessage('회원가입이 완료되었습니다. 같은 정보로 로그인합니다.');
+      }
+
+      const user = await loginUser({ loginId: nextLoginId, password: nextPassword });
+      setAuthUser(user);
+      setAuthForm({ loginId: nextLoginId, password: '' });
+      setActiveMenuPath(DEFAULT_MENU_PATH);
+      pushMenuState(DEFAULT_MENU_PATH);
+    } catch (error) {
+      setAuthErrorMessage(error.message || '인증 처리 중 오류가 발생했습니다.');
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  }
+
+  async function handleLogout() {
+    setTradeDialog(null);
+    setIsSubmittingTrade(false);
+
+    try {
+      await logoutUser();
+    } catch (error) {
+      if (error.status !== 401) {
+        console.error(error);
+      }
+    } finally {
+      setAuthUser(null);
+      setAuthMode('login');
+      setAuthForm((current) => ({ ...current, password: '' }));
+      setAuthHelperMessage('로그아웃되었습니다.');
+      setAuthErrorMessage('');
+      setActiveMenuPath(DEFAULT_MENU_PATH);
+      pushMenuState(DEFAULT_MENU_PATH);
+    }
+  }
+
+  function handleMenuSelect(path) {
+    if (path === '/logout') {
+      handleLogout();
+      return;
+    }
+
+    setActiveMenuPath(path);
     pushMenuState(path);
   }
 
@@ -681,6 +1009,9 @@ function App() {
       setTradeQuantity(1);
     } catch (error) {
       console.error(error);
+      if (error.status === 401) {
+        setAuthUser(null);
+      }
       setTradeFeedback(error.message || '주문 처리 중 오류가 발생했습니다.');
     } finally {
       setIsSubmittingTrade(false);
@@ -711,6 +1042,33 @@ function App() {
     ],
     [isLoadingPortfolio, portfolio],
   );
+
+  if (isCheckingAuth) {
+    return (
+      <main className="auth-shell">
+        <section className="auth-card auth-card-status">
+          <p className="auth-eyebrow">SESSION LOGIN</p>
+          <h1>로그인 상태를 확인하는 중입니다</h1>
+          <p className="auth-description">서버 세션과 사용자 정보를 확인한 뒤 화면을 불러옵니다.</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <AuthScreen
+        mode={authMode}
+        form={authForm}
+        errorMessage={authErrorMessage}
+        helperMessage={authHelperMessage}
+        isSubmitting={isSubmittingAuth}
+        onModeChange={handleAuthModeChange}
+        onFormChange={handleAuthFormChange}
+        onSubmit={handleAuthSubmit}
+      />
+    );
+  }
 
   function renderTradingTab() {
     return (
@@ -815,11 +1173,17 @@ function App() {
       case '/mypage':
         return <MyPageTab apiBaseUrl={API_BASE_URL} loginId={loginId} />;
       case '/stock-game':
-        return <EmptyTabPanel />;
+        return <StockGameTab loginId={loginId} />;
       case '/quiz':
-        return <EmptyTabPanel />;
+        return <QuizTab fetchQuizzes={fetchQuizzes} />;
       case '/tutorial':
-        return <EmptyTabPanel />;
+        return (
+          <MissionTab
+            fetchMissions={fetchMissions}
+            completeMission={completeMission}
+            claimMission={claimMission}
+          />
+        );
       default:
         return renderTradingTab();
     }

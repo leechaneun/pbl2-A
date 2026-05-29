@@ -1,0 +1,600 @@
+[{
+  "_id": {
+    "$oid": "6a053d612ddf561993148791"
+  },
+  "stockCode": "005930",
+  "stockName": "삼성전자",
+  "currentPrice": {
+    "$numberLong": "299500"
+  },
+  "changeRate": -2.44,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:11.274Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d612ddf561993148792"
+  },
+  "stockCode": "000660",
+  "stockName": "SK하이닉스",
+  "currentPrice": {
+    "$numberLong": "2289000"
+  },
+  "changeRate": 2.05,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:11.547Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d612ddf561993148793"
+  },
+  "stockCode": "066570",
+  "stockName": "LG전자",
+  "currentPrice": {
+    "$numberLong": "225500"
+  },
+  "changeRate": -4.04,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:11.866Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d622ddf561993148794"
+  },
+  "stockCode": "005490",
+  "stockName": "POSCO홀딩스",
+  "currentPrice": {
+    "$numberLong": "420000"
+  },
+  "changeRate": -0.83,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:12.179Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d622ddf561993148795"
+  },
+  "stockCode": "035420",
+  "stockName": "NAVER",
+  "currentPrice": {
+    "$numberLong": "205000"
+  },
+  "changeRate": 3.12,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:12.506Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d632ddf561993148796"
+  },
+  "stockCode": "035720",
+  "stockName": "카카오",
+  "currentPrice": {
+    "$numberLong": "40100"
+  },
+  "changeRate": -0.99,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:12.859Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d632ddf561993148797"
+  },
+  "stockCode": "323410",
+  "stockName": "카카오뱅크",
+  "currentPrice": {
+    "$numberLong": "21400"
+  },
+  "changeRate": -2.06,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:13.176Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d632ddf561993148798"
+  },
+  "stockCode": "181710",
+  "stockName": "NHN",
+  "currentPrice": {
+    "$numberLong": "41550"
+  },
+  "changeRate": 10.95,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:13.518Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d642ddf561993148799"
+  },
+  "stockCode": "373220",
+  "stockName": "LG에너지솔루션",
+  "currentPrice": {
+    "$numberLong": "442000"
+  },
+  "changeRate": 15.25,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:13.855Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d642ddf56199314879a"
+  },
+  "stockCode": "006400",
+  "stockName": "삼성SDI",
+  "currentPrice": {
+    "$numberLong": "676000"
+  },
+  "changeRate": 7.3,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:14.180Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d652ddf56199314879b"
+  },
+  "stockCode": "086520",
+  "stockName": "에코프로",
+  "currentPrice": {
+    "$numberLong": "144700"
+  },
+  "changeRate": 1.26,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:14.513Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d652ddf56199314879c"
+  },
+  "stockCode": "247540",
+  "stockName": "에코프로비엠",
+  "currentPrice": {
+    "$numberLong": "218500"
+  },
+  "changeRate": 2.34,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:14.858Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d652ddf56199314879d"
+  },
+  "stockCode": "003670",
+  "stockName": "포스코퓨처엠",
+  "currentPrice": {
+    "$numberLong": "238000"
+  },
+  "changeRate": 3.93,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:15.123Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d662ddf56199314879e"
+  },
+  "stockCode": "005380",
+  "stockName": "현대차",
+  "currentPrice": {
+    "$numberLong": "677000"
+  },
+  "changeRate": -0.59,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:15.463Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d662ddf56199314879f"
+  },
+  "stockCode": "000270",
+  "stockName": "기아",
+  "currentPrice": {
+    "$numberLong": "164300"
+  },
+  "changeRate": -0.24,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:15.784Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d662ddf5619931487a0"
+  },
+  "stockCode": "012330",
+  "stockName": "현대모비스",
+  "currentPrice": {
+    "$numberLong": "686000"
+  },
+  "changeRate": -0.29,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:16.096Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d672ddf5619931487a1"
+  },
+  "stockCode": "105560",
+  "stockName": "KB금융",
+  "currentPrice": {
+    "$numberLong": "149700"
+  },
+  "changeRate": -2.67,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:16.464Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d672ddf5619931487a2"
+  },
+  "stockCode": "055550",
+  "stockName": "신한지주",
+  "currentPrice": {
+    "$numberLong": "92800"
+  },
+  "changeRate": -2.32,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:16.795Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d682ddf5619931487a3"
+  },
+  "stockCode": "086790",
+  "stockName": "하나금융지주",
+  "currentPrice": {
+    "$numberLong": "115300"
+  },
+  "changeRate": -2.62,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:17.155Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d682ddf5619931487a4"
+  },
+  "stockCode": "316140",
+  "stockName": "우리금융지주",
+  "currentPrice": {
+    "$numberLong": "30050"
+  },
+  "changeRate": -1.96,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:17.493Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d692ddf5619931487a5"
+  },
+  "stockCode": "207940",
+  "stockName": "삼성바이오로직스",
+  "currentPrice": {
+    "$numberLong": "1373000"
+  },
+  "changeRate": -0.79,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:17.825Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d692ddf5619931487a6"
+  },
+  "stockCode": "068270",
+  "stockName": "셀트리온",
+  "currentPrice": {
+    "$numberLong": "190000"
+  },
+  "changeRate": -2.31,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:18.162Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d692ddf5619931487a7"
+  },
+  "stockCode": "000100",
+  "stockName": "유한양행",
+  "currentPrice": {
+    "$numberLong": "83600"
+  },
+  "changeRate": -1.88,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:18.509Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d6a2ddf5619931487a8"
+  },
+  "stockCode": "128940",
+  "stockName": "한미약품",
+  "currentPrice": {
+    "$numberLong": "485500"
+  },
+  "changeRate": -0.72,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:18.850Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d6a2ddf5619931487a9"
+  },
+  "stockCode": "352820",
+  "stockName": "하이브",
+  "currentPrice": {
+    "$numberLong": "223500"
+  },
+  "changeRate": -4.08,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:19.198Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d6b2ddf5619931487aa"
+  },
+  "stockCode": "035900",
+  "stockName": "JYP",
+  "currentPrice": {
+    "$numberLong": "57800"
+  },
+  "changeRate": -1.03,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:19.533Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d6b2ddf5619931487ab"
+  },
+  "stockCode": "041510",
+  "stockName": "에스엠",
+  "currentPrice": {
+    "$numberLong": "81200"
+  },
+  "changeRate": -2.87,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:19.855Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d6c2ddf5619931487ac"
+  },
+  "stockCode": "259960",
+  "stockName": "크래프톤",
+  "currentPrice": {
+    "$numberLong": "255500"
+  },
+  "changeRate": 0.2,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:20.180Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d6c2ddf5619931487ad"
+  },
+  "stockCode": "036570",
+  "stockName": "NC",
+  "currentPrice": {
+    "$numberLong": "284500"
+  },
+  "changeRate": 2.52,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:20.523Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d6d2ddf5619931487ae"
+  },
+  "stockCode": "263750",
+  "stockName": "펄어비스",
+  "currentPrice": {
+    "$numberLong": "43900"
+  },
+  "changeRate": -0.9,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:20.876Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d6d2ddf5619931487af"
+  },
+  "stockCode": "139480",
+  "stockName": "이마트",
+  "currentPrice": {
+    "$numberLong": "87100"
+  },
+  "changeRate": -1.14,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:21.211Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d6e2ddf5619931487b0"
+  },
+  "stockCode": "090430",
+  "stockName": "아모레퍼시픽",
+  "currentPrice": {
+    "$numberLong": "115400"
+  },
+  "changeRate": -1.03,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:21.546Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d6e2ddf5619931487b1"
+  },
+  "stockCode": "004370",
+  "stockName": "농심",
+  "currentPrice": {
+    "$numberLong": "388000"
+  },
+  "changeRate": 0.78,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:21.886Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d6e2ddf5619931487b2"
+  },
+  "stockCode": "034020",
+  "stockName": "두산에너빌리티",
+  "currentPrice": {
+    "$numberLong": "105900"
+  },
+  "changeRate": -2.4,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:22.216Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d6f2ddf5619931487b3"
+  },
+  "stockCode": "064350",
+  "stockName": "현대로템",
+  "currentPrice": {
+    "$numberLong": "206000"
+  },
+  "changeRate": -0.48,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:22.548Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d6f2ddf5619931487b4"
+  },
+  "stockCode": "066970",
+  "stockName": "엘앤에프",
+  "currentPrice": {
+    "$numberLong": "169200"
+  },
+  "changeRate": 13.03,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:22.887Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d702ddf5619931487b5"
+  },
+  "stockCode": "112040",
+  "stockName": "위메이드",
+  "currentPrice": {
+    "$numberLong": "19000"
+  },
+  "changeRate": -1.2,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:23.216Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d702ddf5619931487b6"
+  },
+  "stockCode": "000990",
+  "stockName": "DB하이텍",
+  "currentPrice": {
+    "$numberLong": "194300"
+  },
+  "changeRate": -3.81,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:23.547Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d702ddf5619931487b7"
+  },
+  "stockCode": "058470",
+  "stockName": "리노공업",
+  "currentPrice": {
+    "$numberLong": "99100"
+  },
+  "changeRate": -3.32,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:23.883Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+},
+{
+  "_id": {
+    "$oid": "6a053d712ddf5619931487b8"
+  },
+  "stockCode": "003490",
+  "stockName": "대한항공",
+  "currentPrice": {
+    "$numberLong": "27000"
+  },
+  "changeRate": 0.56,
+  "lastUpdated": {
+    "$date": "2026-05-28T14:11:24.227Z"
+  },
+  "_class": "com.mockinvest.backend.domain.stock.Stock"
+}]

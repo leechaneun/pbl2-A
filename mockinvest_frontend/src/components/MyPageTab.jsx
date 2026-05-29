@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import './MyPageTab.css';
+import { isMockApiEnabled, mockFetchMyPageDashboard } from '../mockApi';
 
 function buildApiUrl(baseUrl, path) {
   const normalizedBase = (baseUrl || '').replace(/\/$/, '');
@@ -17,6 +18,10 @@ async function readResponsePayload(response) {
 }
 
 async function fetchMyPageDashboard(apiBaseUrl, signal) {
+  if (isMockApiEnabled) {
+    return mockFetchMyPageDashboard(signal);
+  }
+
   let response;
 
   try {
