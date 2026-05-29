@@ -79,6 +79,7 @@ export default function RealtimePriceChart({
   companyName,
   points,
   currentPrice,
+  currentReturnRate = 0,
   changeRate,
   isLoading,
   statusMessage,
@@ -86,8 +87,12 @@ export default function RealtimePriceChart({
   tradeFeedback,
   onBuyClick,
   onSellClick,
+  onAuxClick,
+  auxButtonLabel,
   disableBuy,
   disableSell,
+  disableAuxButton,
+  hideFooterText = false,
 }) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
@@ -199,6 +204,7 @@ export default function RealtimePriceChart({
   }, [changeRate, latestPoint, previousPoint]);
 
   const directionClass = headline.change >= 0 ? 'up' : 'down';
+  const returnRateClass = currentReturnRate >= 0 ? 'up' : 'down';
 
   return (
     <div className="chart-block">
@@ -223,28 +229,45 @@ export default function RealtimePriceChart({
         ) : null}
       </div>
 
-      <p className="chart-attribution">
-        Market data rendered with TradingView Lightweight Charts.
-        <a href="https://www.tradingview.com" target="_blank" rel="noreferrer">
-          TradingView
-        </a>
-      </p>
+      {!hideFooterText ? (
+        <>
+          <p className="chart-attribution">
+            Market data rendered with TradingView Lightweight Charts.
+            <a href="https://www.tradingview.com" target="_blank" rel="noreferrer">
+              TradingView
+            </a>
+          </p>
 
-      {statusMessage && statusTone === 'info' ? <p className="chart-note">{statusMessage}</p> : null}
+          {statusMessage && statusTone === 'info' ? <p className="chart-note">{statusMessage}</p> : null}
+        </>
+      ) : null}
 
       <div className="trade-bar">
         <div className="trade-bar-meta">
-          <span>현재 거래 기준가</span>
-          <strong>
-            {new Intl.NumberFormat('ko-KR', {
-              style: 'currency',
-              currency: 'KRW',
-              maximumFractionDigits: 0,
-            }).format(currentPrice)}
-          </strong>
+          <div className="trade-bar-meta-headings">
+            <span>현재 거래 기준가</span>
+            <span>수익률</span>
+          </div>
+          <div className="trade-bar-meta-row">
+            <strong>
+              {new Intl.NumberFormat('ko-KR', {
+                style: 'currency',
+                currency: 'KRW',
+                maximumFractionDigits: 0,
+              }).format(currentPrice)}
+            </strong>
+            <em className={`trade-return-rate ${returnRateClass}`}>
+              {`${currentReturnRate >= 0 ? '+' : ''}${currentReturnRate.toFixed(2)}%`}
+            </em>
+          </div>
         </div>
 
         <div className="trade-bar-actions">
+          {onAuxClick ? (
+            <button type="button" className="trade-button item" onClick={onAuxClick} disabled={disableAuxButton}>
+              {auxButtonLabel || '아이템'}
+            </button>
+          ) : null}
           <button type="button" className="trade-button sell" onClick={onSellClick} disabled={disableSell}>
             매도
           </button>
@@ -254,7 +277,8 @@ export default function RealtimePriceChart({
         </div>
       </div>
 
-      {tradeFeedback ? <p className="trade-feedback">{tradeFeedback}</p> : null}
+      {!hideFooterText && tradeFeedback ? <p className="trade-feedback">{tradeFeedback}</p> : null}
     </div>
   );
 }
+

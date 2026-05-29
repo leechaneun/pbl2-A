@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import RealtimePriceChart from './RealtimePriceChart';
 
 function buildRealtimeSocketUrls() {
@@ -40,8 +40,8 @@ const STARTING_CASH = 5000000;
 const MATCH_SECONDS = 15 * 60;
 const TOTAL_DAYS = 65;
 const ITEM_DEFINITIONS = [
-  { key: 'FEE_DISCOUNT', name: '수수료 할인', price: 120000, description: '내 매매 수수료를 60초 동안 0.2%p 낮춥니다.' },
-  { key: 'VOLATILITY_GUARD', name: '변동성 방어', price: 150000, description: '60초 동안 급격한 손실을 완화합니다.' },
+  { key: 'FEE_DISCOUNT', name: '수수료 할인', price: 120000, description: '매매 수수료를 60초 동안 0.2%p 낮춥니다.' },
+  { key: 'VOLATILITY_GUARD', name: '변동성 방어', price: 150000, description: '60초 동안 급격한 가격 변동을 완화합니다.' },
   { key: 'SIGNAL_HINT', name: '신호 힌트', price: 80000, description: '최근 뉴스 기반 힌트 문구를 제공합니다.' },
 ];
 
@@ -57,11 +57,11 @@ function generateMockMarket() {
   const headlines = [
     '반도체 업황 회복 기대감 확산',
     '원자재 가격 안정세로 제조업 부담 완화',
-    '글로벌 금리 동결 전망에 기술주 강세',
-    '기관 수급 유입으로 시장 변동성 축소',
+    '글로벌 금리 동결 기대에 기술주 강세',
+    '기관 자금 유입으로 시장 변동성 축소',
     '신제품 출시 소식에 관련주 관심 집중',
-    '환율 안정으로 수입 기업 수익성 개선',
-    '경기지표 둔화 우려에 관망세 확대',
+    '수출 증가세로 수혜 기업 실적 개선',
+    '경기지표 둔화 우려로 관망세 확대',
   ];
 
   const points = [];
@@ -92,7 +92,7 @@ function generateMockMarket() {
 
 function determineRankFromCash(cash) {
   if (cash >= 10000000) return '다이아';
-  if (cash >= 8500000) return '플레티넘';
+  if (cash >= 8500000) return '플래티넘';
   if (cash >= 7000000) return '골드';
   if (cash >= 6000000) return '실버';
   return '브론즈';
@@ -123,11 +123,12 @@ export default function StockGameTab({ loginId }) {
   const [opponents, setOpponents] = useState([]);
   const [holdingQty, setHoldingQty] = useState(0);
   const [avgPrice, setAvgPrice] = useState(0);
-  const [gameMessage, setGameMessage] = useState('15분 동안 더 많은 수익을 만들어 보세요.');
+  const [gameMessage, setGameMessage] = useState('15분 동안 더 많은 수익을 만들어 보세요!');
   const [inventory, setInventory] = useState([]);
   const [activeEffects, setActiveEffects] = useState([]);
   const [hintMessage, setHintMessage] = useState('');
   const [isTradeLocked, setIsTradeLocked] = useState(false);
+  const [isItemPopupOpen, setIsItemPopupOpen] = useState(false);
   const [isServerDriven, setIsServerDriven] = useState(false);
   const [roomId, setRoomId] = useState('');
   const [gameStockCode, setGameStockCode] = useState('');
@@ -324,6 +325,7 @@ export default function StockGameTab({ loginId }) {
     setIsIntroActive(false);
     setMatchError('');
     setIsMatchmaking(false);
+    setIsItemPopupOpen(false);
     transitionStartedRef.current = false;
     window.clearTimeout(introExitTimerRef.current);
   }
@@ -359,8 +361,9 @@ export default function StockGameTab({ loginId }) {
     setInventory([]);
     setActiveEffects([]);
     setHintMessage('');
-    setGameMessage('15분 동안 더 많은 수익을 만들어 보세요.');
+    setGameMessage('15분 동안 더 많은 수익을 만들어 보세요!');
     setIsTradeLocked(false);
+    setIsItemPopupOpen(false);
     setGameStockCode('PREVIEW');
     setGameStockName('미리보기 종목');
     transitionStartedRef.current = false;
@@ -386,8 +389,9 @@ export default function StockGameTab({ loginId }) {
     setInventory([]);
     setActiveEffects([]);
     setHintMessage('');
-    setGameMessage('15분 동안 더 많은 수익을 만들어 보세요.');
+    setGameMessage('15분 동안 더 많은 수익을 만들어 보세요!');
     setIsTradeLocked(false);
+    setIsItemPopupOpen(false);
     transitionStartedRef.current = false;
   }
 
@@ -397,7 +401,7 @@ export default function StockGameTab({ loginId }) {
     }
 
     transitionStartedRef.current = true;
-    setMatchStatus('매칭완료');
+    setMatchStatus('매칭 완료');
     setIsIntroActive(true);
     setIntroText('3');
     setCountdownValue(3);
@@ -563,7 +567,7 @@ export default function StockGameTab({ loginId }) {
 
     const result = finalCash > opponentCash ? '승리' : finalCash < opponentCash ? '패배' : '무승부';
     setGameMessage(
-      `제한시간 종료! 자동 매도 후 내 현금 ${formatCurrency(finalCash)} / 상대 현금 ${formatCurrency(opponentCash)} · ${result}`,
+      `제한시간 종료! 자동 매도 후 내 자금 ${formatCurrency(finalCash)} / 상대 자금 ${formatCurrency(opponentCash)} · ${result}`,
     );
   }
 
@@ -595,7 +599,7 @@ export default function StockGameTab({ loginId }) {
     const totalCost = currentPrice * qty + fee;
 
     if (cash < totalCost) {
-      setGameMessage('현금이 부족하여 매수할 수 없습니다.');
+      setGameMessage('자금이 부족하여 매수할 수 없습니다.');
       return;
     }
 
@@ -651,7 +655,7 @@ export default function StockGameTab({ loginId }) {
     }
 
     if (cash < item.price) {
-      setGameMessage('아이템 구매 현금이 부족합니다.');
+      setGameMessage('아이템 구매 자금이 부족합니다.');
       return;
     }
 
@@ -671,7 +675,7 @@ export default function StockGameTab({ loginId }) {
 
     const hasItem = inventory.includes(itemKey);
     if (!hasItem) {
-      setGameMessage('보유한 아이템이 없습니다.');
+      setGameMessage('보유 중인 아이템이 없습니다.');
       return;
     }
 
@@ -686,7 +690,7 @@ export default function StockGameTab({ loginId }) {
       const todayNews = marketData.news
         .filter((news) => news.day <= marketIndex)
         .slice(-1)[0];
-      setHintMessage(todayNews ? `힌트: "${todayNews.title}" 흐름을 참고해 포지션을 점검하세요.` : '힌트: 현재 관망 구간입니다.');
+      setHintMessage(todayNews ? `힌트: "${todayNews.title}" 흐름을 참고해 투자해 보세요.` : '힌트: 현재 관망 구간입니다.');
       setGameMessage('신호 힌트를 사용했습니다.');
       return;
     }
@@ -702,6 +706,8 @@ export default function StockGameTab({ loginId }) {
   const currentPrice = marketData.points[marketIndex] ?? marketData.points[0];
   const totalAsset = cash + holdingQty * currentPrice;
   const pnl = holdingQty > 0 ? (currentPrice - avgPrice) * holdingQty : 0;
+  const returnRate = holdingQty > 0 && avgPrice > 0 ? ((currentPrice - avgPrice) / avgPrice) * 100 : 0;
+  const itemButtonLabel = inventory.length > 0 ? `아이템 ${inventory.length}` : '아이템';
   const mm = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
   const ss = String(remainingSeconds % 60).padStart(2, '0');
   const currentRank = determineRankFromCash(totalAsset);
@@ -721,13 +727,13 @@ export default function StockGameTab({ loginId }) {
         <div className="stock-game-overlay" />
         <div className="stock-game-content ingame pvp-ingame">
           <header className="pvp-head">
-            <h1>PVP Battle</h1>
+            <h1>주식 게임</h1>
             <div className="pvp-timer">{`${mm}:${ss}`}</div>
           </header>
 
           <div className="pvp-summary">
             <article>
-              <span>내 현금</span>
+              <span>내 자금</span>
               <strong>{formatCurrency(cash)}</strong>
             </article>
             <article>
@@ -735,7 +741,7 @@ export default function StockGameTab({ loginId }) {
               <strong>{formatCurrency(totalAsset)}</strong>
             </article>
             <article>
-              <span>상대 현금</span>
+              <span>상대 자금</span>
               <strong>{formatCurrency(opponentCash)}</strong>
             </article>
             <article>
@@ -748,26 +754,30 @@ export default function StockGameTab({ loginId }) {
             <div className="pvp-left">
               <div className="pvp-card pvp-chart">
                 <div className="pvp-card-head">
-                  <h2>{`${gameStockName || '랜덤 종목'} (${gameStockCode || '-'})`}</h2>
+                  <h2>{`${gameStockName || '게임 종목'} (${gameStockCode || '-'})`}</h2>
                   <p>
-                    {`${gameStockCode === 'FALLBACK' ? '랜덤' : '실제'} ${lookbackYears}년 전 구간 · ${scenarioFrom || '-'} ~ ${scenarioTo || '-'} · 현재가 ${formatCurrency(currentPrice)}`}
+                    {`${gameStockCode === 'FALLBACK' ? '테스트' : '실제'} ${lookbackYears}년 구간 · ${scenarioFrom || '-'} ~ ${scenarioTo || '-'} · 현재가 ${formatCurrency(currentPrice)}`}
                   </p>
                 </div>
                 <RealtimePriceChart
-                  companyName={gameStockName || gameStockCode || '랜덤 종목'}
+                  companyName={gameStockName || gameStockCode || '게임 종목'}
                   points={gameChartPoints}
                   currentPrice={currentPrice}
+                  currentReturnRate={returnRate}
                   changeRate={0}
                   isLoading={false}
-                  statusMessage={'과거 6개월 일봉을 15분 배속으로 재생 중입니다.'}
+                  statusMessage={'과거 6개월 데이터를 15분 배속으로 재생 중입니다.'}
                   statusTone="info"
                   tradeFeedback={gameMessage}
                   onBuyClick={handleBuy}
                   onSellClick={handleSell}
+                  onAuxClick={() => setIsItemPopupOpen(true)}
+                  auxButtonLabel={itemButtonLabel}
                   disableBuy={isTradeLocked || gameFinished}
                   disableSell={isTradeLocked || gameFinished || holdingQty < 1}
+                  disableAuxButton={gameFinished}
+                  hideFooterText
                 />
-                <p className="pvp-trade-info">{`보유 ${holdingQty}주 · 평균단가 ${formatCurrency(avgPrice)} · 평가손익 ${formatCurrency(pnl)}`}</p>
               </div>
 
             </div>
@@ -790,7 +800,7 @@ export default function StockGameTab({ loginId }) {
 
               <div className="pvp-card pvp-opponent">
                 <div className="pvp-card-head">
-                  <h2>상대 유저</h2>
+                  <h2>상대 정보</h2>
                 </div>
                 <div className="pvp-opponent-body">
                   <p>{opponentProfile.nickname}</p>
@@ -799,14 +809,14 @@ export default function StockGameTab({ loginId }) {
                   <em>{`보유자산 ${formatCurrency(opponentProfile.totalAsset || opponentCash)}`}</em>
                   <small>{`승률 ${Number.isFinite(opponentProfile.winRate) ? opponentProfile.winRate.toFixed(1) : '0.0'}%`}</small>
                   {opponents.length > 1 ? (
-                    <small>{`참가자 ${opponents.length + 1}명`}</small>
+                    <small>{'참가자 ' + (opponents.length + 1) + '명'}</small>
                   ) : null}
                 </div>
                 {opponents.length > 1 ? (
                   <ul>
                     {opponents.map((opponent) => (
                       <li key={opponent.loginId}>
-                        {`${opponent.nickname} · ${formatCurrency(opponent.totalAsset)}`}
+                        {opponent.nickname + ' · ' + formatCurrency(opponent.totalAsset)}
                       </li>
                     ))}
                   </ul>
@@ -815,37 +825,45 @@ export default function StockGameTab({ loginId }) {
             </div>
           </section>
 
-          <section className="pvp-card pvp-items pvp-items-bottom">
-            <div className="pvp-card-head">
-              <h2>아이템 사용 공간</h2>
-            </div>
-            <div className="pvp-item-list">
-              {ITEM_DEFINITIONS.map((item) => (
-                <article key={item.key}>
-                  <strong>{item.name}</strong>
-                  <p>{item.description}</p>
-                  <em>{formatCurrency(item.price)}</em>
-                  <div>
-                    <button type="button" className="pvp-item-buy-btn" onClick={() => handleBuyItem(item)} disabled={isTradeLocked}>
-                      구매
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleUseItem(item.key)}
-                      disabled={isTradeLocked || !inventory.includes(item.key)}
-                    >
-                      사용
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
 
-          <footer className="pvp-footer">
-            <p>{gameMessage}</p>
-            <p>{'제한시간 종료 시 매수/매도 제한 후 보유 종목 자동 매도 및 총합으로 승패를 계산합니다.'}</p>
-          </footer>
+          {isItemPopupOpen ? (
+            <div className="pvp-item-popup-backdrop" role="presentation" onClick={() => setIsItemPopupOpen(false)}>
+              <div className="pvp-item-popup" role="dialog" aria-modal="true" aria-label="아이템 사용 공간" onClick={(event) => event.stopPropagation()}>
+                <div className="pvp-item-popup-header">
+                  <div>
+                    <h2>아이템 사용 공간</h2>
+                    <p>구매 후 바로 사용하거나 보유 아이템을 확인할 수 있습니다.</p>
+                  </div>
+                  <button type="button" className="pvp-item-popup-close" aria-label="아이템 팝업 닫기" onClick={() => setIsItemPopupOpen(false)}>
+                    ×
+                  </button>
+                </div>
+                <div className="pvp-item-list">
+                  {ITEM_DEFINITIONS.map((item) => (
+                    <article key={item.key}>
+                      <strong>{item.name}</strong>
+                      <p>{item.description}</p>
+                      <em>{formatCurrency(item.price)}</em>
+                      <div>
+                        <button type="button" className="pvp-item-buy-btn" onClick={() => handleBuyItem(item)} disabled={isTradeLocked}>
+                          구매
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUseItem(item.key)}
+                          disabled={isTradeLocked || !inventory.includes(item.key)}
+                        >
+                          사용
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+
         </div>
       </section>
     );
@@ -857,8 +875,8 @@ export default function StockGameTab({ loginId }) {
 
       {!matchMode ? (
         <div className="stock-game-content stock-game-home">
-          <h1>미니게임에 온 걸 환영합니다!</h1>
-          <p>상대방보다 더 많은 돈을 벌어보세요</p>
+          <h1>미니게임에 도전해 보세요</h1>
+          <p>상대보다 더 많은 수익을 만들어 보세요.</p>
 
           <div className="stock-game-actions">
             <button type="button" onClick={() => setMatchMode('1vs1')}>
@@ -871,7 +889,7 @@ export default function StockGameTab({ loginId }) {
 
           {!isInGame ? (
             <button type="button" className="stock-game-preview-button" onClick={enterPreviewGame}>
-              인게임 화면 미리보기
+              튜토리얼 미리보기
             </button>
           ) : null}
         </div>
@@ -890,18 +908,18 @@ export default function StockGameTab({ loginId }) {
           </div>
 
           <div className="stock-game-rank-rule">
-            <p>{'랭크 시스템: 브론즈/실버/골드/플레티넘/다이아'}</p>
-            <p>{'등급 점수 기준: 200 / 400 / 600 / 800 / 1000'}</p>
-            <p>{'기본 승패 점수: 15점'}</p>
+            <p>{'랭크 티어: 브론즈 / 실버 / 골드 / 플래티넘 / 다이아'}</p>
+            <p>{'티어별 점수 기준: 200 / 400 / 600 / 800 / 1000'}</p>
+            <p>{'기본 획득 점수: 15점'}</p>
           </div>
 
           <p className="stock-game-match-desc">
             {matchMode === '1vsALL'
-              ? '15분동안 살아남아 가장 많은 수익을 벌어들이세요! (5명이 매칭됩니다)'
-              : '15분동안 상대방보다 더 많은 수익을 벌어들이세요!'}
+              ? '15분 동안 살아남아 가장 많은 수익을 만든 사람이 승리합니다! (5명이 매칭됩니다)'
+              : '15분 동안 상대보다 더 많은 수익을 만들면 승리합니다!'}
           </p>
           <p className="stock-game-match-state">
-            {`이번 매치 종목: ${gameStockName || '매칭 후 공개'} (${gameStockCode || '-'})`}
+            {'이번 매치 종목: ' + (gameStockName || '매칭 시 공개') + ' (' + (gameStockCode || '-') + ')'}
           </p>
 
           {matchStatus ? <p className="stock-game-match-state">{matchStatus}</p> : null}
@@ -925,3 +943,8 @@ export default function StockGameTab({ loginId }) {
     </section>
   );
 }
+
+
+
+
+

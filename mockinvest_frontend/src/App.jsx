@@ -275,10 +275,6 @@ async function fetchQuizzes(signal, quizType) {
   throw latestError || new Error('퀴즈를 불러오지 못했습니다.');
 }
 
-async function fetchMissions(signal) {
-  return requestApi('/missions', { signal });
-}
-
 async function registerUser({ loginId, password, signal }) {
   return requestApi('/user/register', {
     method: 'POST',
@@ -306,11 +302,11 @@ async function logoutUser(signal) {
   });
 }
 
-async function completeMission(missionType, signal) {
+async function completeMission(loginId, missionType, signal) {
   const bodyCandidates = [
-    { missionType },
-    { type: missionType },
-    { mission_type: missionType },
+    { loginId, missionType },
+    { loginId, type: missionType },
+    { loginId, mission_type: missionType },
   ];
 
   let latestError;
@@ -332,11 +328,11 @@ async function completeMission(missionType, signal) {
   }
 }
 
-async function claimMission(missionType, signal) {
+async function claimMission(loginId, missionType, signal) {
   const bodyCandidates = [
-    { missionType },
-    { type: missionType },
-    { mission_type: missionType },
+    { loginId, missionType },
+    { loginId, type: missionType },
+    { loginId, mission_type: missionType },
   ];
 
   let latestError;
@@ -1179,9 +1175,9 @@ function App() {
       case '/tutorial':
         return (
           <MissionTab
-            fetchMissions={fetchMissions}
-            completeMission={completeMission}
-            claimMission={claimMission}
+            fetchMissions={(signal) => requestApi(`/missions/${encodeURIComponent(loginId)}`, { signal })}
+            completeMission={(missionType, signal) => completeMission(loginId, missionType, signal)}
+            claimMission={(missionType, signal) => claimMission(loginId, missionType, signal)}
           />
         );
       default:
