@@ -9,17 +9,16 @@ public class CorsConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**") // 모든 API 경로에 대해
+        registry.addMapping("/**")
                 .allowedOriginPatterns(
-                        //"http://localhost:5173",
-                       // "https://sandbar-precinct-quilt.ngrok-free.dev",
-                        "https://pbl2-a.vercel.app",
-                        "https://pbl2-a.onrender.com"
-                        // 앞에 공백이 없는지 꼭 확인하세요!
+                        //"http://localhost:5173"
+                        //"https://sandbar-precinct-quilt.ngrok-free.dev"
+                        "https://pbl2-a.vercel.app"
+                        ,"https://pbl2-a.onrender.com"
                 )
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // 허용할 HTTP 메서드
-                .allowedHeaders("*") // 모든 헤더 허용
-                .allowCredentials(true) // 세션 쿠키(JSESSIONID) 전송을 위해 필수
-                .maxAge(3600); // 프리플라이트 요청 캐싱 시간 (1시간)
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(true)
+                .maxAge(3600);
     }
 }

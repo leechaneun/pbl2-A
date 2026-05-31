@@ -15,11 +15,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-/**
- * [실시간 DB 가격 조회 검증 테스트]
- * 흉내 내는 가짜 가격이 아니라, 실제 DB(MongoDB)에 저장된 주가를
- * 서비스가 직접 조회하여 거래를 처리하는지 입증합니다.
- */
 @SpringBootTest
 class TradeServiceIntegrationTest {
 
@@ -48,7 +43,7 @@ class TradeServiceIntegrationTest {
         Member member = Member.builder()
                 .loginId(TEST_ID)
                 .balance(10000000.0)
-                .name("진짜DB테스터")
+                .nickname("진짜DB테스터")
                 .build();
         memberRepository.save(member);
         System.out.println("\n[준비] 테스트용 회원 생성 완료 (잔고: 10,000,000원)");

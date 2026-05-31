@@ -39,6 +39,44 @@ function getErrorMessage(error, fallback) {
   return error instanceof Error ? error.message : fallback;
 }
 
+function getPostSortValue(post) {
+  const createdAt = post?.createdAt;
+  const parsedTime = createdAt ? new Date(createdAt).getTime() : Number.NaN;
+
+  if (Number.isFinite(parsedTime)) {
+    return parsedTime;
+  }
+
+  const postId = String(post?.postId ?? '').trim();
+  return postId ? postId : '0';
+}
+
+function getSelectedPostIdFromLocation() {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  return new URL(window.location.href).searchParams.get('post') ?? '';
+}
+
+function syncSelectedPostIdToLocation(postId, { replace = false } = {}) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+
+  if (postId) {
+    url.searchParams.set('post', postId);
+  } else {
+    url.searchParams.delete('post');
+  }
+
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  const method = replace ? 'replaceState' : 'pushState';
+  window.history[method]({ ...(window.history.state ?? {}), boardPostId: postId || null }, '', nextUrl);
+}
+
 function toSummary(post) {
   return {
     postId: String(post.postId),
@@ -55,6 +93,22 @@ function toSummary(post) {
     commentCount: Number(post.commentCount ?? (post.comments?.length ?? 0)),
     comments: Array.isArray(post.comments) ? post.comments : [],
     createdAt: post.createdAt ?? null,
+  };
+}
+
+function toggleLikeState(post, loginId) {
+  if (!post) {
+    return post;
+  }
+
+  const likedUsers = Array.isArray(post.likedUsers) ? post.likedUsers : [];
+  const alreadyLiked = likedUsers.includes(loginId);
+  const nextLikedUsers = alreadyLiked ? likedUsers.filter((user) => user !== loginId) : [...likedUsers, loginId];
+
+  return {
+    ...post,
+    likedUsers: nextLikedUsers,
+    likeCount: nextLikedUsers.length,
   };
 }
 
@@ -221,15 +275,45 @@ export default function BoardTab({
   const filteredPosts = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
 
-    return posts.filter((post) => {
-      if (!keyword) {
-        return true;
-      }
+    return posts
+      .filter((post) => {
+        if (!keyword) {
+          return true;
+        }
 
-      const target = `${post.title} ${post.author} ${post.stockName} ${post.stockCode}`.toLowerCase();
-      return target.includes(keyword);
-    });
+        const target = `${post.title} ${post.author} ${post.stockName} ${post.stockCode}`.toLowerCase();
+        return target.includes(keyword);
+      })
+      .sort((left, right) => {
+        const leftValue = getPostSortValue(left);
+        const rightValue = getPostSortValue(right);
+
+        if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+          return rightValue - leftValue;
+        }
+
+        return String(rightValue).localeCompare(String(leftValue));
+      });
   }, [posts, searchTerm]);
+
+  function openPostDetail(postId) {
+    const nextPostId = String(postId ?? '').trim();
+
+    if (!nextPostId || nextPostId === selectedPostId) {
+      return;
+    }
+
+    setIsComposerOpen(false);
+    setSelectedPostId(nextPostId);
+    syncSelectedPostIdToLocation(nextPostId);
+  }
+
+  function closeBoardOverlay() {
+    setSelectedPostId('');
+    setSelectedPost(null);
+    setIsComposerOpen(false);
+    syncSelectedPostIdToLocation('', { replace: true });
+  }
 
   async function loadPosts(signal) {
     setIsLoadingPosts(true);
@@ -279,6 +363,19 @@ export default function BoardTab({
   }, [fetchPosts]);
 
   useEffect(() => {
+    function handlePopState() {
+      const nextPostId = getSelectedPostIdFromLocation();
+      setSelectedPostId(nextPostId);
+      setSelectedPost(null);
+      setIsComposerOpen(false);
+    }
+
+    handlePopState();
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
     const controller = new AbortController();
     loadPostDetail(selectedPostId, controller.signal);
     return () => controller.abort();
@@ -288,12 +385,11 @@ export default function BoardTab({
     event.preventDefault();
 
     if (!filteredPosts.length) {
-      setSelectedPostId('');
-      setSelectedPost(null);
+      closeBoardOverlay();
       return;
     }
 
-    setSelectedPostId(filteredPosts[0].postId);
+    openPostDetail(filteredPosts[0].postId);
   }
 
   async function refreshSelectedPost(postId) {
@@ -319,7 +415,7 @@ export default function BoardTab({
       const createdId = typeof created === 'string' ? created : created?.postId;
 
       if (createdId) {
-        setSelectedPostId(String(createdId));
+        openPostDetail(String(createdId));
         await refreshSelectedPost(String(createdId));
       } else {
         await loadPosts();
@@ -345,7 +441,10 @@ export default function BoardTab({
 
     try {
       await togglePostLike({ postId: selectedPostId, loginId });
-      await refreshSelectedPost(selectedPostId);
+      setSelectedPost((currentPost) => toggleLikeState(currentPost, loginId));
+      setPosts((currentPosts) =>
+        currentPosts.map((post) => (post.postId === selectedPostId ? toggleLikeState(post, loginId) : post)),
+      );
     } catch (error) {
       setErrorMessage(getErrorMessage(error, '추천 처리에 실패했습니다.'));
     } finally {
@@ -366,9 +465,11 @@ export default function BoardTab({
 
     try {
       await createComment({ postId: selectedPostId, content: commentDraft.trim(), author: loginId });
-      await refreshSelectedPost(selectedPostId);
+      setSelectedPost((prev) => ({
+              ...prev,
+              comments: [...prev.comments, { content: commentDraft.trim(), author: loginId, createdAt: new Date().toISOString() }]
+            }));
       setCommentDraft('');
-      setFeedbackMessage('댓글을 등록했습니다.');
     } catch (error) {
       setErrorMessage(getErrorMessage(error, '댓글 등록에 실패했습니다.'));
     } finally {
@@ -390,9 +491,7 @@ export default function BoardTab({
           className="board-compose-button"
           onClick={() => {
             if (isDetailView || isComposeView) {
-              setSelectedPostId('');
-              setSelectedPost(null);
-              setIsComposerOpen(false);
+              closeBoardOverlay();
               return;
             }
 
@@ -403,7 +502,15 @@ export default function BoardTab({
         </button>
       </header>
 
-      <section className="board-detail-panel board-full-panel">
+      <section
+        className={[
+          'board-detail-panel',
+          'board-full-panel',
+          selectedPost ? 'board-detail-panel-active' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
         {!isDetailView && !isComposeView ? (
           <form className="board-search" onSubmit={handleSearchSubmit}>
             <input
@@ -438,7 +545,7 @@ export default function BoardTab({
                     key={post.postId}
                     type="button"
                     className={`board-post-card board-title-item ${selectedPostId === post.postId ? 'active' : ''}`}
-                    onClick={() => setSelectedPostId(post.postId)}
+                    onClick={() => openPostDetail(post.postId)}
                   >
                     <div className="board-post-card-top">
                       <span>{post.author || '익명'}</span>
@@ -459,8 +566,8 @@ export default function BoardTab({
             <strong>상세 내용을 불러오는 중입니다.</strong>
           </div>
         ) : selectedPost ? (
-          <>
-            <div className="board-panel-scroll">
+          <div className="board-detail-layout">
+            <div className="board-panel-scroll board-detail-scroll">
               <div className="board-detail-head">
                 <div>
                   <h2>{selectedPost.title}</h2>
@@ -492,45 +599,54 @@ export default function BoardTab({
                 </button>
               </div>
 
-              <div className="board-content-box">
-                <p>{selectedPost.content || '내용이 없습니다.'}</p>
-              </div>
-
-              <div className="board-comments-block">
-                <div className="board-comments-head">
-                  <h3>댓글</h3>
-                  <span className="board-liked-users">{selectedPost.comments?.length ?? 0}개</span>
+              <div className="board-article-card">
+                <div className="board-content-section">
+                  <div className="board-section-head">
+                    <h3>본문</h3>
+                  </div>
+                  <div className="board-content-box">
+                    <p>{selectedPost.content || '내용이 없습니다.'}</p>
+                  </div>
                 </div>
 
-                <div className="board-comments-list">
-                  {selectedPost.comments?.length ? (
-                    selectedPost.comments.map((comment, index) => (
-                      <article key={comment.id ?? `${comment.author}-${comment.createdAt ?? index}`} className="board-comment-card">
-                        <strong>{comment.author}</strong>
-                        <span className="board-detail-date">{formatDate(comment.createdAt)}</span>
-                        <p>{comment.content}</p>
-                      </article>
-                    ))
-                  ) : (
-                    <p className="board-empty">아직 댓글이 없습니다.</p>
-                  )}
-                </div>
+                <div className="board-comments-section">
+                  <div className="board-comments-block">
+                    <div className="board-comments-head board-section-head">
+                      <h3>댓글</h3>
+                      <span className="board-liked-users">{selectedPost.comments?.length ?? 0}개</span>
+                    </div>
 
-                <form className="board-comment-form" onSubmit={handleCreateComment}>
-                  <textarea
-                    rows="3"
-                    value={commentDraft}
-                    onChange={(event) => setCommentDraft(event.target.value)}
-                    placeholder="댓글을 입력하세요"
-                    disabled={isSubmittingComment}
-                  />
-                  <button type="submit" disabled={isSubmittingComment}>
-                    {isSubmittingComment ? '등록 중...' : '댓글 등록'}
-                  </button>
-                </form>
+                    <div className="board-comments-list board-comments-list-inline">
+                      {selectedPost.comments?.length ? (
+                        selectedPost.comments.map((comment, index) => (
+                          <article key={comment.id ?? `${comment.author}-${comment.createdAt ?? index}`} className="board-comment-card">
+                            <strong>{comment.author}</strong>
+                            <span className="board-detail-date">{formatDate(comment.createdAt)}</span>
+                            <p>{comment.content}</p>
+                          </article>
+                        ))
+                      ) : (
+                        <p className="board-empty">아직 댓글이 없습니다.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </>
+
+            <form className="board-comment-form board-comment-form-docked" onSubmit={handleCreateComment}>
+              <textarea
+                rows="3"
+                value={commentDraft}
+                onChange={(event) => setCommentDraft(event.target.value)}
+                placeholder="댓글을 입력하세요"
+                disabled={isSubmittingComment}
+              />
+              <button type="submit" disabled={isSubmittingComment}>
+                {isSubmittingComment ? '등록 중...' : '댓글 등록'}
+              </button>
+            </form>
+          </div>
         ) : (
           <div className="board-empty-state board-empty-fill">
             <strong>게시글을 선택해 주세요.</strong>

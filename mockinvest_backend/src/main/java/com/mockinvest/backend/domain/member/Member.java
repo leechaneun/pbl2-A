@@ -24,9 +24,12 @@ public class Member {
     @NotBlank(message = "비밀번호는 필수입니다")
     private String password;
 
-    private String name;
+    private String nickname;
 
     private Double balance; // 초기 자산 (예: 10,000,000.0)
+    private Integer rankScore; // 랭크 점수 (기본 0)
+    private Integer gamePlayCount; // 플레이한 게임 수
+    private Integer gameWinCount; // 승리한 게임 수
 
 
     //테스트용

@@ -142,7 +142,8 @@
 }
 
 .mypage-stock-list,
-.mypage-post-list {
+.mypage-post-list,
+.mypage-match-history-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -150,7 +151,8 @@
 }
 
 .mypage-stock-item,
-.mypage-post-item {
+.mypage-post-item,
+.mypage-match-history-item {
   border: 1px solid #edf2f8;
   border-radius: 14px;
   background: #fafcff;
@@ -279,6 +281,73 @@
   border-radius: 999px;
   background: #fff;
   padding: 5px 9px;
+}
+
+.mypage-match-history-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.mypage-match-history-main strong {
+  display: block;
+  color: #1d2e4d;
+  font-size: 14px;
+}
+
+.mypage-match-history-main p {
+  margin: 6px 0 0;
+  color: #8796b0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.mypage-match-history-main span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #617392;
+  white-space: nowrap;
+}
+
+.mypage-match-history-main span.win {
+  color: #eb5d66;
+}
+
+.mypage-match-history-main span.lose {
+  color: #2f74ec;
+}
+
+.mypage-match-history-metrics {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mypage-match-history-metrics span {
+  border: 1px solid #e3ebf8;
+  border-radius: 999px;
+  background: #fff;
+  padding: 5px 9px;
+  color: #617392;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mypage-match-history-opponents {
+  margin-top: 10px;
+  border-top: 1px solid #edf2f8;
+  padding-top: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.mypage-match-history-opponents p {
+  margin: 0;
+  color: #667997;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .mypage-empty-state {

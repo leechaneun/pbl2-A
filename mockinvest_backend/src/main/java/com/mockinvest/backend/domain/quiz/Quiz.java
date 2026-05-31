@@ -33,4 +33,5 @@ public class Quiz {
     private String answer;
     private String correctAnswer;
     private String solution;
+    private String hint;
 }

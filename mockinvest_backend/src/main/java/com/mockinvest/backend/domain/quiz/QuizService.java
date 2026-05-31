@@ -144,7 +144,13 @@ public class QuizService {
     private QuizResponse toResponse(Quiz quiz) {
         String question = firstNonBlank(quiz.getQuestion(), quiz.getQuiz(), quiz.getPrompt(), quiz.getWord());
         String answer = firstNonBlank(quiz.getAnswer(), quiz.getCorrectAnswer(), quiz.getSolution());
-        return new QuizResponse(quiz.getId(), trimOrEmpty(question), trimOrEmpty(answer), resolveStoredType(quiz));
+        return new QuizResponse(
+                quiz.getId(),
+                trimOrEmpty(question),
+                trimOrEmpty(answer),
+                resolveStoredType(quiz),
+                trimOrEmpty(quiz.getHint())
+        );
     }
 
     private String firstNonBlank(String... values) {
@@ -160,5 +166,5 @@ public class QuizService {
         return Objects.toString(value, "").trim();
     }
 
-    public record QuizResponse(String id, String question, String answer, String type) {}
+    public record QuizResponse(String id, String question, String answer, String type, String hint) {}
 }

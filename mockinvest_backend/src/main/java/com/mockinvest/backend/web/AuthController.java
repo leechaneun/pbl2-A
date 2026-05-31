@@ -34,8 +34,18 @@ public class AuthController {
             return ResponseEntity.badRequest().body(bindingResult.getAllErrors());
         }
 
+        // 회원가입 표시는 닉네임 기준으로 처리
+        String nickname = member.getNickname();
+        if (nickname == null || nickname.trim().isEmpty()) {
+            nickname = member.getLoginId();
+        }
+        member.setNickname(nickname.trim());
+
         // 초기 자산 1,000만 원 고정
         member.setBalance(10000000.0);
+        member.setRankScore(0);
+        member.setGamePlayCount(0);
+        member.setGameWinCount(0);
 
         try {
             Member savedMember = memberService.register(member);

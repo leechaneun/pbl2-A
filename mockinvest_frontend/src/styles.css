@@ -527,6 +527,7 @@ button {
 }
 
 .trade-modal {
+  position: relative;
   width: min(420px, 100%);
   background: rgba(255, 255, 255, 0.97);
   border: 1px solid #dde7f6;
@@ -675,6 +676,69 @@ button {
 
 .trade-modal-actions .primary.sell {
   background: linear-gradient(135deg, #ff8d93, #ef5f69);
+}
+
+.is-denied-shake {
+  animation: denied-button-shake 420ms ease;
+}
+
+.modal-floating-toast {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 84px;
+  z-index: 2;
+  border-radius: 12px;
+  padding: 11px 14px;
+  background: rgba(27, 41, 67, 0.92);
+  color: #ffffff;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  pointer-events: none;
+  box-shadow: 0 16px 32px rgba(27, 41, 67, 0.24);
+  animation: modal-floating-toast-fade 1.6s ease forwards;
+}
+
+@keyframes denied-button-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  18% {
+    transform: translateX(-6px);
+  }
+  36% {
+    transform: translateX(6px);
+  }
+  54% {
+    transform: translateX(-5px);
+  }
+  72% {
+    transform: translateX(5px);
+  }
+  90% {
+    transform: translateX(-2px);
+  }
+}
+
+@keyframes modal-floating-toast-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  62% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
 }
 
 .holdings-list {
@@ -1294,8 +1358,9 @@ button {
 
 .board-shell {
   height: 100%;
-  display: flex;
-  flex-direction: column;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 14px;
 }
 
@@ -1367,26 +1432,51 @@ button {
 }
 
 .board-detail-panel {
+  height: 100%;
   padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 14px;
   overflow: hidden;
+  min-height: 0;
 }
 
 .board-full-panel {
-  flex: 1;
+  height: 100%;
+  min-height: 0;
 }
 
 .board-panel-scroll {
   min-height: 0;
   flex: 1;
+  height: 100%;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   gap: 14px;
   overflow-x: hidden;
   overflow-y: auto;
   padding-right: 4px;
+}
+
+.board-detail-layout {
+  min-height: 0;
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.board-detail-scroll {
+  min-height: 0;
+  flex: 1;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 4px;
 }
 
 .board-detail-nav {
@@ -1576,10 +1666,13 @@ button {
 }
 
 .board-article-card {
+  min-height: 0;
+  flex: 1;
   border: 1px solid #e5edf9;
   border-radius: 18px;
   background: #fff;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .board-section-head {
@@ -1601,10 +1694,11 @@ button {
 .board-comments-section {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .board-comments-section {
-  border-top: 1px solid #edf2fb;
+  overflow: visible;
 }
 
 .board-content-box {
@@ -1640,7 +1734,8 @@ button {
 .board-comments-block {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
+  min-height: 0;
 }
 
 .board-empty-fill {
@@ -1714,7 +1809,19 @@ button {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  max-height: min(320px, 42vh);
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 16px 18px 18px;
+  padding-right: 10px;
+  overflow-wrap: anywhere;
+}
+
+.board-comments-list-inline {
+  max-height: none;
+  overflow: visible;
+  padding-right: 18px;
 }
 
 .board-comment-card {
@@ -1722,6 +1829,8 @@ button {
   border-radius: 16px;
   background: #f9fbff;
   padding: 14px 16px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .board-comment-head {
@@ -1741,20 +1850,32 @@ button {
   margin: 6px 0 0;
   line-height: 1.6;
   color: #536685;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .board-comment-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 132px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   align-items: stretch;
+}
+
+.board-comment-form-docked {
+  flex: 0 0 auto;
+  border-top: 1px solid #e8eef9;
+  padding-top: 12px;
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.72), rgba(248, 251, 255, 0.98));
 }
 
 .board-comment-form button {
   border: 0;
   border-radius: 16px;
-  height: 100%;
-  min-height: 56px;
+  height: 48px;
+  min-height: 48px;
+  width: 132px;
+  justify-self: end;
   background: linear-gradient(135deg, #3f86ff, #2d72eb);
   color: #fff;
   font-weight: 700;
@@ -1768,8 +1889,10 @@ button {
 
 .board-comment-form textarea {
   min-height: 56px;
+  max-height: none;
   padding-top: 16px;
   padding-bottom: 16px;
+  line-height: 1.4;
 }
 
 .board-empty,
@@ -1999,6 +2122,37 @@ button {
   letter-spacing: -0.04em;
 }
 
+.quiz-hint-block {
+  margin-top: 14px;
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.quiz-hint-toggle {
+  border: 1px solid #d8e5f8;
+  border-radius: 999px;
+  min-height: 40px;
+  padding: 8px 14px;
+  background: rgba(235, 243, 255, 0.92);
+  color: #2d72eb;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.quiz-hint-text {
+  margin: 0;
+  width: 100%;
+  border: 1px solid #dbe6f8;
+  border-radius: 16px;
+  padding: 14px 16px;
+  background: rgba(248, 251, 255, 0.96);
+  color: #4d617f;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 .quiz-form {
   margin-top: 18px;
   display: grid;
@@ -2065,6 +2219,10 @@ button {
   justify-content: flex-end;
 }
 
+.quiz-next-actions {
+  justify-content: center;
+}
+
 .quiz-actions button {
   min-width: 132px;
   background: #eef4fc;
@@ -2103,19 +2261,42 @@ button {
 }
 
 .mission-card {
+  position: relative;
+  overflow: hidden;
   border: 1px solid #e4ebf8;
   border-radius: 18px;
   background: #fff;
   padding: 16px;
 }
 
-.mission-card:not(.is-completed) {
+.mission-card:not(.is-claimed) {
   animation: mission-card-breathe 2.4s ease-in-out infinite;
 }
 
-.mission-card.is-completed {
-  filter: grayscale(0.75);
-  opacity: 0.72;
+.mission-card.is-claimed {
+  filter: grayscale(0.45);
+}
+
+.mission-complete-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(112, 122, 138, 0.38);
+  backdrop-filter: blur(2px);
+}
+
+.mission-complete-overlay span {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+  color: #3f4a5c;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 @keyframes mission-card-breathe {
@@ -2192,6 +2373,26 @@ button {
 .mission-claim-button {
   background: linear-gradient(135deg, #2d72eb, #4f8df7);
   color: #fff;
+}
+
+.mission-claim-button.is-claimable {
+  animation: mission-claim-pulse 1.05s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(63, 134, 255, 0.48);
+}
+
+@keyframes mission-claim-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(63, 134, 255, 0.48);
+  }
+  65% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 10px rgba(63, 134, 255, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(63, 134, 255, 0);
+  }
 }
 
 .mission-actions button:disabled {
@@ -2474,17 +2675,7 @@ button {
   cursor: pointer;
 }
 
-.pvp-trade-info {
-  margin: 8px 0 0;
-  font-size: 13px;
-  color: #647796;
-}
-
-.pvp-trade-panel {
-  padding-top: 8px;
-}
-
-.pvp-news {
+.pvp-log-panel {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -2493,7 +2684,64 @@ button {
   overflow: hidden;
 }
 
-.pvp-news ul {
+.pvp-log-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.pvp-log-summary article {
+  border: 1px solid #dbe8fa;
+  border-radius: 10px;
+  background: rgba(248, 251, 255, 0.98);
+  padding: 10px;
+}
+
+.pvp-log-summary span,
+.pvp-log-effects span {
+  display: block;
+  font-size: 12px;
+  color: #8aa0c2;
+}
+
+.pvp-log-summary strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.pvp-log-effects {
+  margin-top: 10px;
+}
+
+.pvp-log-effects div {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pvp-log-effects em {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(231, 241, 255, 0.96);
+  color: #2d72eb;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.pvp-log-effects em.muted {
+  background: rgba(239, 243, 250, 0.96);
+  color: #7283a0;
+}
+
+.pvp-log-list {
   margin: 10px 0 0;
   padding: 0 4px 0 0;
   list-style: none;
@@ -2507,26 +2755,26 @@ button {
   scrollbar-color: rgba(131, 171, 241, 0.9) rgba(227, 237, 251, 0.9);
 }
 
-.pvp-news ul::-webkit-scrollbar {
+.pvp-log-list::-webkit-scrollbar {
   width: 10px;
 }
 
-.pvp-news ul::-webkit-scrollbar-track {
+.pvp-log-list::-webkit-scrollbar-track {
   border-radius: 999px;
   background: rgba(227, 237, 251, 0.9);
 }
 
-.pvp-news ul::-webkit-scrollbar-thumb {
+.pvp-log-list::-webkit-scrollbar-thumb {
   border: 2px solid rgba(227, 237, 251, 0.95);
   border-radius: 999px;
   background: linear-gradient(180deg, rgba(169, 203, 255, 0.96), rgba(85, 140, 237, 0.98));
 }
 
-.pvp-news ul::-webkit-scrollbar-thumb:hover {
+.pvp-log-list::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, rgba(208, 229, 255, 0.95), rgba(111, 162, 248, 0.98));
 }
 
-.pvp-news li {
+.pvp-log-list li {
   border: 1px solid #dbe8fa;
   border-radius: 10px;
   padding: 8px;
@@ -2534,13 +2782,19 @@ button {
   overflow-wrap: anywhere;
 }
 
-.pvp-news strong {
+.pvp-log-list li.empty {
+  display: grid;
+  place-content: center;
+  min-height: 92px;
+}
+
+.pvp-log-list strong {
   display: block;
   font-size: 12px;
   color: #8aa0c2;
 }
 
-.pvp-news span {
+.pvp-log-list span {
   display: block;
   margin-top: 3px;
   font-size: 13px;
@@ -2548,14 +2802,11 @@ button {
   color: var(--text);
 }
 
-.pvp-hint {
-  margin: 10px 0 0;
-  font-size: 13px;
-  color: var(--blue-deep);
-}
-
 .pvp-opponent {
+  display: flex;
+  flex-direction: column;
   align-self: start;
+  min-height: 196px;
 }
 
 .pvp-opponent-body {
@@ -2631,16 +2882,37 @@ button {
 
 .pvp-item-list article {
   border: 1px solid #dbe7f9;
-  border-radius: 10px;
-  padding: 8px;
+  border-radius: 14px;
+  padding: 12px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 249, 255, 0.98));
   min-width: 0;
+  box-shadow: 0 10px 22px rgba(106, 130, 168, 0.08);
 }
 
 .pvp-item-list strong,
 .pvp-item-list em,
 .pvp-item-list p {
   display: block;
+}
+
+.pvp-item-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pvp-item-count {
+  flex: 0 0 auto;
+  min-width: 52px;
+  padding: 5px 10px;
+  border: 1px solid #dbe7f9;
+  border-radius: 999px;
+  background: rgba(233, 242, 255, 0.9);
+  color: #2d72eb;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
 }
 
 .pvp-item-list p {
@@ -2658,7 +2930,7 @@ button {
   color: var(--blue-deep);
 }
 
-.pvp-item-list div {
+.pvp-item-actions {
   margin-top: 8px;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2685,6 +2957,7 @@ button {
 }
 
 .pvp-item-popup {
+  position: relative;
   width: min(760px, calc(100vw - 32px));
   max-height: min(520px, calc(100vh - 48px));
   overflow-y: auto;
@@ -2839,6 +3112,89 @@ button {
   cursor: pointer;
 }
 
+.pvp-summary-button,
+.pvp-opponent-open-button {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  min-height: 54px;
+  padding: 12px 14px;
+  background: rgba(228, 238, 255, 0.96);
+  color: #173a6a;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.pvp-opponent-open-button {
+  flex: 1;
+  width: 100%;
+  margin-top: 10px;
+  min-height: 104px;
+  padding: 18px 20px;
+  align-self: stretch;
+}
+
+.pvp-opponent-dialog-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 12px;
+}
+
+.pvp-opponent-dialog-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 150px;
+  height: 100%;
+  padding: 14px 16px;
+  border: 1px solid #dbe6f8;
+  border-radius: 14px;
+  background: rgba(247, 250, 255, 0.96);
+}
+
+.pvp-opponent-dialog-item strong {
+  color: #173a6a;
+}
+
+.pvp-opponent-dialog-item span {
+  color: #5d7396;
+  font-size: 14px;
+}
+
+.pvp-opponent-dialog-item-info {
+  display: grid;
+  justify-content: stretch;
+  gap: 10px;
+}
+
+.pvp-opponent-dialog-item-info em {
+  color: #244a7f;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.pvp-opponent-dialog-modal {
+  width: min(820px, 100%);
+}
+
+.pvp-opponent-dialog-modal .trade-modal-body {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.pvp-opponent-cash-modal {
+  width: min(740px, 100%);
+}
+
+.pvp-opponent-cash-modal .pvp-opponent-dialog-item {
+  min-height: 124px;
+}
+
+
 .stock-game-modal-backdrop {
   position: absolute;
   inset: 0;
@@ -2973,6 +3329,7 @@ button {
   font-size: 13px;
   font-weight: 700;
 }
+
 
 .stock-game-shell.start-transition .stock-game-content {
   filter: brightness(0.58);

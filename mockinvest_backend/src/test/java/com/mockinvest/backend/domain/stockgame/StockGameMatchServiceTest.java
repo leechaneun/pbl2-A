@@ -2,6 +2,10 @@ package com.mockinvest.backend.domain.stockgame;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mockinvest.backend.domain.member.MemberRepository;
+import com.mockinvest.backend.domain.stockgame.history.StockGameMatchHistory1vs1Repository;
+import com.mockinvest.backend.domain.stockgame.history.StockGameHistoryService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,8 +25,28 @@ import static org.mockito.Mockito.when;
 class StockGameMatchServiceTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final StockGameMatchService stockGameMatchService = new StockGameMatchService(objectMapper);
+    private final StockGameHistoryService stockGameHistoryService = mock(StockGameHistoryService.class);
+    private final MemberRepository memberRepository = mock(MemberRepository.class);
+    private final StockGameMatchHistory1vs1Repository stockGameMatchHistory1vs1Repository = mock(StockGameMatchHistory1vs1Repository.class);
+    private final StockGameMatchService stockGameMatchService =
+            new StockGameMatchService(objectMapper, stockGameHistoryService, memberRepository, stockGameMatchHistory1vs1Repository);
     private final List<WebSocketSession> openedSessions = new ArrayList<>();
+
+    @BeforeEach
+    void setUp() {
+        List<String> supportedCodes = List.of("TEST");
+        StockGameHistoryService.GameChartScenario scenario = new StockGameHistoryService.GameChartScenario(
+                "TEST",
+                "테스트 종목",
+                1,
+                "2025-01-01",
+                "2025-06-30",
+                List.of(100_000L, 101_000L, 102_000L, 99_000L, 103_000L)
+        );
+
+        when(stockGameHistoryService.getSupportedStockCodes()).thenReturn(supportedCodes);
+        when(stockGameHistoryService.getRandomSixMonthScenario(supportedCodes)).thenReturn(scenario);
+    }
 
     @AfterEach
     void tearDown() {
@@ -82,4 +106,3 @@ class StockGameMatchServiceTest {
     private record CapturedSession(WebSocketSession session, List<String> messages) {
     }
 }
-

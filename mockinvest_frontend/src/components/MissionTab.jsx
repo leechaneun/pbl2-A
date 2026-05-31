@@ -97,7 +97,12 @@ export default function MissionTab({ fetchMissions, claimMission }) {
 
       <div className="mission-grid">
         {missions.map((mission) => (
-          <article key={mission.key} className={`mission-card ${mission.completed ? 'is-completed' : ''}`}>
+          <article key={mission.key} className={`mission-card ${mission.claimed ? 'is-claimed' : ''}`}>
+            {mission.claimed && (
+              <div className="mission-complete-overlay" aria-hidden="true">
+                <span>미션 완료</span>
+              </div>
+            )}
             <div className="mission-card-head">
               <h2>{mission.title}</h2>
               <span className={mission.claimed ? 'claimed' : mission.completed ? 'completed' : 'pending'}>
@@ -112,7 +117,7 @@ export default function MissionTab({ fetchMissions, claimMission }) {
               </button>
               <button
                 type="button"
-                className="mission-claim-button"
+                className={`mission-claim-button ${mission.completed && !mission.claimed ? 'is-claimable' : ''}`}
                 onClick={() => handleClaim(mission.key)}
                 disabled={isLoading || workingKey === mission.key || !mission.completed || mission.claimed}
               >

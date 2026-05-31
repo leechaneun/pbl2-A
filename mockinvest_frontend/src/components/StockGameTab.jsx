@@ -39,11 +39,63 @@ function getMatchedPayload(eventData) {
 const STARTING_CASH = 5000000;
 const MATCH_SECONDS = 15 * 60;
 const TOTAL_DAYS = 65;
+const BASE_FEE_RATE = 0.005;
+const DISCOUNT_FEE_RATE = 0.0025;
+const FEE_DISCOUNT_DURATION_MS = 60000;
 const ITEM_DEFINITIONS = [
-  { key: 'FEE_DISCOUNT', name: '수수료 할인', price: 120000, description: '매매 수수료를 60초 동안 0.2%p 낮춥니다.' },
-  { key: 'VOLATILITY_GUARD', name: '변동성 방어', price: 150000, description: '60초 동안 급격한 가격 변동을 완화합니다.' },
-  { key: 'SIGNAL_HINT', name: '신호 힌트', price: 80000, description: '최근 뉴스 기반 힌트 문구를 제공합니다.' },
+  { key: 'FEE_DISCOUNT', name: '수수료 할인', price: 120000, description: '60초 동안 매매 수수료를 0.25%로 낮춥니다.' },
+  { key: 'OPPONENT_TRADES', name: '상대 거래내역 보기', price: 90000, description: '상대의 최근 거래 내역을 확인합니다.' },
+  { key: 'NEXT_SELL_BOOST', name: '다음 매도 수익률 증가', price: 140000, description: '다음 매도 시 수익 보너스 10%를 적용합니다.' },
 ];
+const ITEM_NAME_MAP = Object.fromEntries(ITEM_DEFINITIONS.map((item) => [item.key, item.name]));
+
+function getEffectLabel(effectKey) {
+  if (effectKey === 'FEE_DISCOUNT') {
+    return '수수료 0.25% 적용 중';
+  }
+  if (effectKey === 'NEXT_SELL_BOOST') {
+    return '다음 매도 수익 보너스 10% 대기 중';
+  }
+  if (effectKey === 'OPPONENT_TRADES') {
+    return '상대 거래내역 확인';
+  }
+
+  return ITEM_NAME_MAP[effectKey] || effectKey;
+}
+
+function formatEffectLabel(effect, now) {
+  const baseLabel = getEffectLabel(effect.key);
+
+  if (effect.key === 'FEE_DISCOUNT' && effect.expireAt) {
+    const remainingSeconds = Math.max(0, Math.ceil((effect.expireAt - now) / 1000));
+    return `${baseLabel} (${remainingSeconds}초)`;
+  }
+
+  return baseLabel;
+}
+
+function normalizeActiveEffect(effect, now, previousEffect) {
+  if (!effect || typeof effect !== 'object') {
+    return effect;
+  }
+
+  if (effect.key === 'FEE_DISCOUNT') {
+    const previousExpireAt = Number(previousEffect?.expireAt ?? 0);
+    if (Number.isFinite(previousExpireAt) && previousExpireAt > now) {
+      return { ...effect, expireAt: previousExpireAt };
+    }
+
+    const expireAtValue = Number(effect.expireAt ?? 0);
+    const cappedExpireAt =
+      Number.isFinite(expireAtValue) && expireAtValue > now
+        ? Math.min(expireAtValue, now + FEE_DISCOUNT_DURATION_MS)
+        : now + FEE_DISCOUNT_DURATION_MS;
+
+    return { ...effect, expireAt: cappedExpireAt };
+  }
+
+  return effect;
+}
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('ko-KR', {
@@ -90,15 +142,15 @@ function generateMockMarket() {
   return { points, news };
 }
 
-function determineRankFromCash(cash) {
-  if (cash >= 10000000) return '다이아';
-  if (cash >= 8500000) return '플래티넘';
-  if (cash >= 7000000) return '골드';
-  if (cash >= 6000000) return '실버';
+function determineRankFromScore(score) {
+  if (score >= 800) return '다이아';
+  if (score >= 600) return '플래티넘';
+  if (score >= 400) return '골드';
+  if (score >= 200) return '실버';
   return '브론즈';
 }
 
-export default function StockGameTab({ loginId }) {
+export default function StockGameTab({ loginId, initialRankScore = 0 }) {
   const [isDark, setIsDark] = useState(false);
   const [matchMode, setMatchMode] = useState('');
   const [isMatchmaking, setIsMatchmaking] = useState(false);
@@ -117,17 +169,27 @@ export default function StockGameTab({ loginId }) {
     loginId: 'opponent',
     nickname: '상대 플레이어',
     rank: '브론즈',
+    rankScore: 0,
     totalAsset: STARTING_CASH,
     winRate: 0,
   });
+  const [myRankScore, setMyRankScore] = useState(Math.max(0, Math.floor(initialRankScore)));
+  const [myRank, setMyRank] = useState(determineRankFromScore(Math.max(0, Math.floor(initialRankScore))));
   const [opponents, setOpponents] = useState([]);
   const [holdingQty, setHoldingQty] = useState(0);
   const [avgPrice, setAvgPrice] = useState(0);
   const [gameMessage, setGameMessage] = useState('15분 동안 더 많은 수익을 만들어 보세요!');
   const [inventory, setInventory] = useState([]);
   const [activeEffects, setActiveEffects] = useState([]);
-  const [hintMessage, setHintMessage] = useState('');
+  const [gameLogs, setGameLogs] = useState([]);
+  const [effectNow, setEffectNow] = useState(() => Date.now());
   const [isTradeLocked, setIsTradeLocked] = useState(false);
+  const [tradeQuantity, setTradeQuantity] = useState(1);
+  const [tradeDialog, setTradeDialog] = useState(null);
+  const [opponentDialog, setOpponentDialog] = useState(null);
+  const [tradeErrorPulse, setTradeErrorPulse] = useState(0);
+  const [itemErrorPulseKey, setItemErrorPulseKey] = useState('');
+  const [purchaseToast, setPurchaseToast] = useState(null);
   const [isItemPopupOpen, setIsItemPopupOpen] = useState(false);
   const [isServerDriven, setIsServerDriven] = useState(false);
   const [roomId, setRoomId] = useState('');
@@ -143,7 +205,17 @@ export default function StockGameTab({ loginId }) {
   const socketRef = useRef(null);
   const countdownTimerRef = useRef(null);
   const introExitTimerRef = useRef(null);
+  const purchaseToastTimerRef = useRef(null);
+  const purchaseToastSequenceRef = useRef(0);
+  const tradeErrorResetTimerRef = useRef(null);
+  const itemErrorResetTimerRef = useRef(null);
+  const shakeAnimationFrameRef = useRef(null);
   const transitionStartedRef = useRef(false);
+  const remainingSecondsRef = useRef(MATCH_SECONDS);
+  const previousHoldingQtyRef = useRef(0);
+  const previousInventoryRef = useRef([]);
+  const previousEffectsRef = useRef([]);
+  const hasReceivedSnapshotRef = useRef(false);
   const socketUrls = useMemo(() => buildRealtimeSocketUrls(), []);
 
   function sendSocketAction(action, payload = {}) {
@@ -162,7 +234,25 @@ export default function StockGameTab({ loginId }) {
     return true;
   }
 
+  useEffect(() => {
+    remainingSecondsRef.current = remainingSeconds;
+  }, [remainingSeconds]);
+
   function applyServerSnapshot(eventData) {
+    const now = Date.now();
+    const nextHoldingQty = typeof eventData.holdingQty === 'number' ? eventData.holdingQty : previousHoldingQtyRef.current;
+    const nextInventory = Array.isArray(eventData.inventory) ? eventData.inventory : previousInventoryRef.current;
+    const nextEffects = Array.isArray(eventData.activeEffects)
+      ? eventData.activeEffects.map((effect) =>
+          normalizeActiveEffect(
+            effect,
+            now,
+            previousEffectsRef.current.find((previousEffect) => previousEffect?.key === effect?.key),
+          ),
+        )
+      : previousEffectsRef.current;
+    const isInitialSnapshot = !hasReceivedSnapshotRef.current;
+
     if (typeof eventData.remainingSeconds === 'number') {
       setRemainingSeconds(Math.max(0, Math.floor(eventData.remainingSeconds)));
     }
@@ -178,9 +268,17 @@ export default function StockGameTab({ loginId }) {
         loginId: String(eventData.opponent.loginId ?? current.loginId),
         nickname: String(eventData.opponent.nickname ?? current.nickname),
         rank: String(eventData.opponent.rank ?? current.rank),
+        rankScore: Number(eventData.opponent.rankScore ?? current.rankScore),
         totalAsset: Number(eventData.opponent.totalAsset ?? eventData.opponent.cash ?? current.totalAsset),
         winRate: Number(eventData.opponent.winRate ?? current.winRate),
       }));
+    }
+    if (typeof eventData.rankScore === 'number' && Number.isFinite(eventData.rankScore)) {
+      const nextScore = Math.max(0, Math.floor(eventData.rankScore));
+      setMyRankScore(nextScore);
+      setMyRank(typeof eventData.rank === 'string' && eventData.rank ? eventData.rank : determineRankFromScore(nextScore));
+    } else if (typeof eventData.rank === 'string' && eventData.rank) {
+      setMyRank(eventData.rank);
     }
     if (Array.isArray(eventData.opponents)) {
       const normalizedOpponents = eventData.opponents
@@ -188,6 +286,7 @@ export default function StockGameTab({ loginId }) {
           loginId: String(opponent?.loginId ?? ''),
           nickname: String(opponent?.nickname ?? opponent?.loginId ?? '상대 플레이어'),
           rank: String(opponent?.rank ?? '브론즈'),
+          rankScore: Number(opponent?.rankScore ?? 0),
           totalAsset: Number(opponent?.totalAsset ?? opponent?.cash ?? 0),
           cash: Number(opponent?.cash ?? opponent?.totalAsset ?? 0),
           winRate: Number(opponent?.winRate ?? 0),
@@ -235,11 +334,25 @@ export default function StockGameTab({ loginId }) {
       setInventory(eventData.inventory);
     }
     if (Array.isArray(eventData.activeEffects)) {
-      setActiveEffects(eventData.activeEffects);
+      setActiveEffects(nextEffects);
     }
     if (Array.isArray(eventData.news)) {
       setMarketData((current) => ({ ...current, news: eventData.news }));
     }
+    if (Array.isArray(eventData.opponentTradeLogs) && eventData.opponentTradeLogs.length > 0) {
+      appendGameLog(`상대 최근 거래: ${eventData.opponentTradeLogs.join(' | ')}`);
+    }
+
+    if (!isInitialSnapshot) {
+      if (nextHoldingQty !== previousHoldingQtyRef.current) {
+        appendGameLog(`보유 주식 수량 변경: ${previousHoldingQtyRef.current}주 -> ${nextHoldingQty}주`);
+      }
+    }
+
+    previousHoldingQtyRef.current = nextHoldingQty;
+    previousInventoryRef.current = Array.isArray(nextInventory) ? [...nextInventory] : [];
+    previousEffectsRef.current = Array.isArray(nextEffects) ? [...nextEffects] : [];
+    hasReceivedSnapshotRef.current = true;
 
     if (Array.isArray(eventData.prices) && eventData.prices.length > 1) {
       const normalizedPrices = eventData.prices.map((price) => Number(price)).filter((price) => Number.isFinite(price));
@@ -355,17 +468,33 @@ export default function StockGameTab({ loginId }) {
     setMarketIndex(0);
     setCash(STARTING_CASH);
     setOpponentCash(STARTING_CASH);
+    setOpponentProfile({
+      loginId: 'opponent',
+      nickname: '상대 플레이어',
+      rank: '브론즈',
+      rankScore: 0,
+      totalAsset: STARTING_CASH,
+      winRate: 0,
+    });
+    setMyRankScore(0);
+    setMyRank('브론즈');
     setOpponents([]);
     setHoldingQty(0);
     setAvgPrice(0);
     setInventory([]);
     setActiveEffects([]);
-    setHintMessage('');
+    setGameLogs([]);
     setGameMessage('15분 동안 더 많은 수익을 만들어 보세요!');
     setIsTradeLocked(false);
+    setTradeQuantity(1);
+    setTradeDialog(null);
     setIsItemPopupOpen(false);
     setGameStockCode('PREVIEW');
     setGameStockName('미리보기 종목');
+    previousHoldingQtyRef.current = 0;
+    previousInventoryRef.current = [];
+    previousEffectsRef.current = [];
+    hasReceivedSnapshotRef.current = false;
     transitionStartedRef.current = false;
     if (socketRef.current) {
       socketRef.current.close();
@@ -388,10 +517,16 @@ export default function StockGameTab({ loginId }) {
     setAvgPrice(0);
     setInventory([]);
     setActiveEffects([]);
-    setHintMessage('');
+    setGameLogs([]);
     setGameMessage('15분 동안 더 많은 수익을 만들어 보세요!');
     setIsTradeLocked(false);
+    setTradeQuantity(1);
+    setTradeDialog(null);
     setIsItemPopupOpen(false);
+    previousHoldingQtyRef.current = 0;
+    previousInventoryRef.current = [];
+    previousEffectsRef.current = [];
+    hasReceivedSnapshotRef.current = false;
     transitionStartedRef.current = false;
   }
 
@@ -544,16 +679,36 @@ export default function StockGameTab({ loginId }) {
       });
     }, 3000);
 
-    effectTimerRef.current = window.setInterval(() => {
-      setActiveEffects((current) => current.filter((effect) => effect.expireAt > Date.now()));
-    }, 500);
-
     return () => {
       window.clearInterval(gameTimerRef.current);
       window.clearInterval(marketTimerRef.current);
-      window.clearInterval(effectTimerRef.current);
     };
   }, [isInGame, gameFinished, isServerDriven]);
+
+  useEffect(() => {
+    if (!isInGame || gameFinished) {
+      return undefined;
+    }
+
+    effectTimerRef.current = window.setInterval(() => {
+      setEffectNow(Date.now());
+      setActiveEffects((current) => current.filter((effect) => !effect.expireAt || effect.expireAt > Date.now()));
+    }, 250);
+
+    return () => {
+      window.clearInterval(effectTimerRef.current);
+    };
+  }, [isInGame, gameFinished]);
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(purchaseToastTimerRef.current);
+      window.clearTimeout(tradeErrorResetTimerRef.current);
+      window.clearTimeout(itemErrorResetTimerRef.current);
+      window.cancelAnimationFrame(shakeAnimationFrameRef.current);
+    },
+    [],
+  );
 
   function finishGame() {
     setGameFinished(true);
@@ -566,75 +721,170 @@ export default function StockGameTab({ loginId }) {
     setAvgPrice(0);
 
     const result = finalCash > opponentCash ? '승리' : finalCash < opponentCash ? '패배' : '무승부';
-    setGameMessage(
-      `제한시간 종료! 자동 매도 후 내 자금 ${formatCurrency(finalCash)} / 상대 자금 ${formatCurrency(opponentCash)} · ${result}`,
-    );
+    const summaryMessage = `제한시간 종료! 자동 매도 후 내 자금 ${formatCurrency(finalCash)} / 상대 자금 ${formatCurrency(opponentCash)} · ${result}`;
+    setGameMessage(summaryMessage);
+    appendGameLog(summaryMessage);
   }
 
   function hasEffect(effectKey) {
-    return activeEffects.some((effect) => effect.key === effectKey);
+    return activeEffects.some((effect) => effect.key === effectKey && (!effect.expireAt || effect.expireAt > Date.now()));
   }
 
   function getCurrentFeeRate() {
-    return hasEffect('FEE_DISCOUNT') ? 0.0015 : 0.0035;
+    return hasEffect('FEE_DISCOUNT') ? DISCOUNT_FEE_RATE : BASE_FEE_RATE;
   }
 
-  function handleBuy() {
+  function handleTradeQuantityChange(value) {
+    if (!Number.isFinite(value)) {
+      setTradeQuantity(1);
+      return;
+    }
+
+    setTradeQuantity(Math.max(1, Math.floor(value)));
+  }
+
+  function openTradeDialog(mode) {
     if (isTradeLocked || gameFinished) {
       return;
     }
-    const qty = 1;
 
-    if (isServerDriven) {
-      const sent = sendSocketAction('BUY', { quantity: qty });
-      if (!sent) {
-        setGameMessage('서버에 매수 요청을 보내지 못했습니다.');
-      }
+    if (mode === 'sell' && holdingQty < 1) {
       return;
     }
 
+    setTradeDialog(mode);
+    setTradeQuantity(1);
+  }
+
+  function closeTradeDialog() {
+    setTradeDialog(null);
+    setTradeQuantity(1);
+  }
+
+  function formatElapsedLogTime() {
+    const elapsedSeconds = Math.max(0, MATCH_SECONDS - remainingSecondsRef.current);
+    const minutes = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
+    const seconds = String(elapsedSeconds % 60).padStart(2, '0');
+    return `${minutes}:${seconds}`;
+  }
+
+  function appendGameLog(text) {
+    const trimmedText = String(text ?? '').trim();
+    if (!trimmedText) {
+      return;
+    }
+
+    const timestamp = formatElapsedLogTime();
+
+    setGameLogs((current) => [{ id: `${Date.now()}-${current.length}`, text: trimmedText, timestamp }, ...current].slice(0, 24));
+  }
+
+  function showPurchaseDeniedToast(target, message = '구매할 수 없습니다.') {
+    window.clearTimeout(purchaseToastTimerRef.current);
+    purchaseToastSequenceRef.current += 1;
+    setPurchaseToast({
+      id: purchaseToastSequenceRef.current,
+      target,
+      message,
+    });
+    purchaseToastTimerRef.current = window.setTimeout(() => {
+      setPurchaseToast(null);
+    }, 1600);
+  }
+
+  function triggerTradeDeniedFeedback(message = '구매할 수 없습니다.') {
+    window.clearTimeout(tradeErrorResetTimerRef.current);
+    window.cancelAnimationFrame(shakeAnimationFrameRef.current);
+    setTradeErrorPulse(0);
+    shakeAnimationFrameRef.current = window.requestAnimationFrame(() => {
+      setTradeErrorPulse(Date.now());
+      tradeErrorResetTimerRef.current = window.setTimeout(() => {
+        setTradeErrorPulse(0);
+      }, 460);
+    });
+    showPurchaseDeniedToast('trade', message);
+  }
+
+  function triggerItemDeniedFeedback(itemKey, actionType = 'buy', message = '구매할 수 없습니다.') {
+    window.clearTimeout(itemErrorResetTimerRef.current);
+    window.cancelAnimationFrame(shakeAnimationFrameRef.current);
+    setItemErrorPulseKey('');
+    shakeAnimationFrameRef.current = window.requestAnimationFrame(() => {
+      setItemErrorPulseKey(`${itemKey}-${actionType}-${Date.now()}`);
+      itemErrorResetTimerRef.current = window.setTimeout(() => {
+        setItemErrorPulseKey('');
+      }, 460);
+    });
+    showPurchaseDeniedToast('item', message);
+  }
+
+  function countItemsByKey(items) {
+    return items.reduce((counts, itemKey) => {
+      counts[itemKey] = (counts[itemKey] ?? 0) + 1;
+      return counts;
+    }, {});
+  }
+
+  function handleConfirmTrade() {
+    if (!tradeDialog || isTradeLocked || gameFinished) {
+      return;
+    }
+
+    const qty = Math.max(1, Math.floor(tradeQuantity));
     const currentPrice = marketData.points[marketIndex] ?? 0;
     const feeRate = getCurrentFeeRate();
-    const fee = Math.round(currentPrice * qty * feeRate);
-    const totalCost = currentPrice * qty + fee;
 
-    if (cash < totalCost) {
-      setGameMessage('자금이 부족하여 매수할 수 없습니다.');
-      return;
-    }
+    if (tradeDialog === 'buy') {
+      const fee = Math.round(currentPrice * qty * feeRate);
+      const totalCost = currentPrice * qty + fee;
 
-    const nextQty = holdingQty + qty;
-    const weighted = holdingQty * avgPrice + qty * currentPrice;
-    setCash((current) => current - totalCost);
-    setHoldingQty(nextQty);
-    setAvgPrice(Math.round(weighted / nextQty));
-    setGameMessage(`${qty}주 매수 완료. 수수료 ${formatCurrency(fee)}`);
-  }
-
-  function handleSell() {
-    if (isTradeLocked || gameFinished) {
-      return;
-    }
-    const qty = 1;
-
-    if (isServerDriven) {
-      const sent = sendSocketAction('SELL', { quantity: qty });
-      if (!sent) {
-        setGameMessage('서버에 매도 요청을 보내지 못했습니다.');
+      if (cash < totalCost) {
+        setGameMessage('자금이 부족하여 매수할 수 없습니다.');
+        triggerTradeDeniedFeedback('구매할 수 없습니다.');
+        return;
       }
-      return;
     }
 
-    if (holdingQty < qty) {
+    if (tradeDialog === 'sell' && holdingQty < qty) {
       setGameMessage('보유 수량보다 많이 매도할 수 없습니다.');
+      triggerTradeDeniedFeedback('매도할 수 없습니다.');
       return;
     }
 
-    const currentPrice = marketData.points[marketIndex] ?? 0;
-    const feeRate = getCurrentFeeRate();
+    if (isServerDriven) {
+      const action = tradeDialog === 'buy' ? 'BUY' : 'SELL';
+      const failureMessage =
+        tradeDialog === 'buy' ? '서버에 매수 요청을 보내지 못했습니다.' : '서버에 매도 요청을 보내지 못했습니다.';
+      const sent = sendSocketAction(action, { quantity: qty });
+      if (!sent) {
+        setGameMessage(failureMessage);
+      } else {
+        closeTradeDialog();
+      }
+      return;
+    }
+
+    if (tradeDialog === 'buy') {
+      const fee = Math.round(currentPrice * qty * feeRate);
+      const totalCost = currentPrice * qty + fee;
+
+      const nextQty = holdingQty + qty;
+      const weighted = holdingQty * avgPrice + qty * currentPrice;
+      setCash((current) => current - totalCost);
+      setHoldingQty(nextQty);
+      setAvgPrice(Math.round(weighted / nextQty));
+      const message = `${qty}주 매수 완료. 현재 보유 ${nextQty}주 / 수수료 ${formatCurrency(fee)}`;
+      setGameMessage(message);
+      appendGameLog(message);
+      closeTradeDialog();
+      return;
+    }
+
     const gross = currentPrice * qty;
     const fee = Math.round(gross * feeRate);
-    const net = gross - fee;
+    const profit = Math.max(0, (currentPrice - avgPrice) * qty);
+    const boostBonus = hasEffect('NEXT_SELL_BOOST') ? Math.round(profit * 0.1) : 0;
+    const net = gross - fee + boostBonus;
     const nextQty = holdingQty - qty;
 
     setCash((current) => current + net);
@@ -642,10 +892,22 @@ export default function StockGameTab({ loginId }) {
     if (nextQty === 0) {
       setAvgPrice(0);
     }
-    setGameMessage(`${qty}주 매도 완료. 수수료 ${formatCurrency(fee)}`);
+    if (hasEffect('NEXT_SELL_BOOST')) {
+      setActiveEffects((current) => current.filter((effect) => effect.key !== 'NEXT_SELL_BOOST'));
+    }
+    const message = `${qty}주 매도 완료. 현재 보유 ${nextQty}주 / 수수료 ${formatCurrency(fee)} / 보너스 ${formatCurrency(boostBonus)}`;
+    setGameMessage(message);
+    appendGameLog(message);
+    closeTradeDialog();
   }
 
   function handleBuyItem(item) {
+    if (cash < item.price) {
+      setGameMessage('아이템 구매 자금이 부족합니다.');
+      triggerItemDeniedFeedback(item.key, 'buy');
+      return;
+    }
+
     if (isServerDriven) {
       const sent = sendSocketAction('ITEM_BUY', { itemKey: item.key });
       if (!sent) {
@@ -654,17 +916,22 @@ export default function StockGameTab({ loginId }) {
       return;
     }
 
-    if (cash < item.price) {
-      setGameMessage('아이템 구매 자금이 부족합니다.');
-      return;
-    }
-
     setCash((current) => current - item.price);
     setInventory((current) => [...current, item.key]);
-    setGameMessage(`${item.name} 구매 완료`);
+    const nextCount = (itemInventoryCounts[item.key] ?? 0) + 1;
+    const message = `${item.name} 구매 완료. 보유 ${nextCount}개`;
+    setGameMessage(message);
+    appendGameLog(message);
   }
 
   function handleUseItem(itemKey) {
+    const ownedCount = itemInventoryCounts[itemKey] ?? 0;
+    if (ownedCount < 1) {
+      setGameMessage('아이템을 사용할 수 없습니다.');
+      triggerItemDeniedFeedback(itemKey, 'use', '아이템을 사용할 수 없습니다.');
+      return;
+    }
+
     if (isServerDriven) {
       const sent = sendSocketAction('ITEM_USE', { itemKey });
       if (!sent) {
@@ -686,32 +953,64 @@ export default function StockGameTab({ loginId }) {
       return next;
     });
 
-    if (itemKey === 'SIGNAL_HINT') {
-      const todayNews = marketData.news
-        .filter((news) => news.day <= marketIndex)
-        .slice(-1)[0];
-      setHintMessage(todayNews ? `힌트: "${todayNews.title}" 흐름을 참고해 투자해 보세요.` : '힌트: 현재 관망 구간입니다.');
-      setGameMessage('신호 힌트를 사용했습니다.');
+    if (itemKey === 'OPPONENT_TRADES') {
+      const message = '상대 거래내역 보기 아이템을 사용했습니다.';
+      setGameMessage(message);
       return;
     }
 
-    const durationMs = 60000;
-    setActiveEffects((current) => [
-      ...current.filter((effect) => effect.key !== itemKey),
-      { key: itemKey, expireAt: Date.now() + durationMs },
-    ]);
-    setGameMessage('아이템 효과가 60초 동안 적용됩니다.');
+    if (itemKey === 'FEE_DISCOUNT') {
+      const durationMs = 60000;
+      setActiveEffects((current) => [
+        ...current.filter((effect) => effect.key !== itemKey),
+        { key: itemKey, expireAt: Date.now() + durationMs },
+      ]);
+      const message = '수수료 할인이 60초 동안 적용됩니다. (0.25%)';
+      setGameMessage(message);
+      return;
+    }
+
+    if (itemKey === 'NEXT_SELL_BOOST') {
+      setActiveEffects((current) => [
+        ...current.filter((effect) => effect.key !== itemKey),
+        { key: itemKey },
+      ]);
+      const message = '다음 매도 시 수익 보너스 10%가 적용됩니다.';
+      setGameMessage(message);
+    }
   }
 
   const currentPrice = marketData.points[marketIndex] ?? marketData.points[0];
   const totalAsset = cash + holdingQty * currentPrice;
   const pnl = holdingQty > 0 ? (currentPrice - avgPrice) * holdingQty : 0;
   const returnRate = holdingQty > 0 && avgPrice > 0 ? ((currentPrice - avgPrice) / avgPrice) * 100 : 0;
-  const itemButtonLabel = inventory.length > 0 ? `아이템 ${inventory.length}` : '아이템';
+  const feeRate = getCurrentFeeRate();
+  const normalizedTradeQuantity = Math.max(1, Math.floor(tradeQuantity));
+  const estimatedBuyFee = Math.round(currentPrice * normalizedTradeQuantity * feeRate);
+  const estimatedBuyCost = currentPrice * normalizedTradeQuantity + estimatedBuyFee;
+  const estimatedSellFee = Math.round(currentPrice * normalizedTradeQuantity * feeRate);
+  const estimatedSellBonus = hasEffect('NEXT_SELL_BOOST')
+    ? Math.round(Math.max(0, (currentPrice - avgPrice) * normalizedTradeQuantity) * 0.1)
+    : 0;
+  const maxBuyQuantity = currentPrice > 0 ? Math.max(0, Math.floor(cash / (currentPrice * (1 + feeRate)))) : 0;
   const mm = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
   const ss = String(remainingSeconds % 60).padStart(2, '0');
-  const currentRank = determineRankFromCash(totalAsset);
-  const activeNews = marketData.news.filter((item) => item.day <= marketIndex).reverse();
+  const currentRank = myRank || determineRankFromScore(myRankScore);
+  const itemInventoryCounts = useMemo(
+    () =>
+      inventory.reduce((counts, itemKey) => {
+        counts[itemKey] = (counts[itemKey] ?? 0) + 1;
+        return counts;
+      }, {}),
+    [inventory],
+  );
+  const activeEffectLabels = useMemo(
+    () =>
+      activeEffects
+        .filter((effect) => !effect.expireAt || effect.expireAt > Date.now())
+        .map((effect) => formatEffectLabel(effect, effectNow)),
+    [activeEffects, effectNow],
+  );
   const gameChartPoints = useMemo(
     () =>
       marketData.points.map((value, index) => ({
@@ -720,6 +1019,7 @@ export default function StockGameTab({ loginId }) {
       })),
     [marketData.points],
   );
+  const isMultiOpponentMatch = opponents.length > 1;
 
   if (isInGame) {
     return (
@@ -741,12 +1041,20 @@ export default function StockGameTab({ loginId }) {
               <strong>{formatCurrency(totalAsset)}</strong>
             </article>
             <article>
-              <span>상대 자금</span>
-              <strong>{formatCurrency(opponentCash)}</strong>
+              {isMultiOpponentMatch ? (
+                <button type="button" className="pvp-summary-button" onClick={() => setOpponentDialog('cash')}>
+                  상대 자금
+                </button>
+              ) : (
+                <>
+                  <span>상대 자금</span>
+                  <strong>{formatCurrency(opponentCash)}</strong>
+                </>
+              )}
             </article>
             <article>
               <span>현재 랭크</span>
-              <strong>{currentRank}</strong>
+              <strong>{`${currentRank} (${myRankScore}점)`}</strong>
             </article>
           </div>
 
@@ -764,15 +1072,15 @@ export default function StockGameTab({ loginId }) {
                   points={gameChartPoints}
                   currentPrice={currentPrice}
                   currentReturnRate={returnRate}
-                  changeRate={0}
+                  //changeRate={0}
                   isLoading={false}
                   statusMessage={'과거 6개월 데이터를 15분 배속으로 재생 중입니다.'}
                   statusTone="info"
                   tradeFeedback={gameMessage}
-                  onBuyClick={handleBuy}
-                  onSellClick={handleSell}
+                  onBuyClick={() => openTradeDialog('buy')}
+                  onSellClick={() => openTradeDialog('sell')}
                   onAuxClick={() => setIsItemPopupOpen(true)}
-                  auxButtonLabel={itemButtonLabel}
+                  auxButtonLabel="아이템"
                   disableBuy={isTradeLocked || gameFinished}
                   disableSell={isTradeLocked || gameFinished || holdingQty < 1}
                   disableAuxButton={gameFinished}
@@ -783,44 +1091,62 @@ export default function StockGameTab({ loginId }) {
             </div>
 
             <div className="pvp-right">
-              <div className="pvp-card pvp-news">
+              <div className="pvp-card pvp-log-panel">
                 <div className="pvp-card-head">
-                  <h2>시장 뉴스</h2>
+                  <h2>게임 로그</h2>
                 </div>
-                <ul>
-                  {activeNews.map((news) => (
-                    <li key={`${news.day}-${news.title}`}>
-                      <strong>{news.dateLabel}</strong>
-                      <span>{news.title}</span>
-                    </li>
-                  ))}
+                <div className="pvp-log-summary">
+                  <article>
+                    <span>현재 보유</span>
+                    <strong>{`${holdingQty}주`}</strong>
+                  </article>
+                  <article>
+                    <span>사용 가능 아이템</span>
+                    <strong>{`${inventory.length}개`}</strong>
+                  </article>
+                </div>
+                <div className="pvp-log-effects">
+                  <span>활성 효과</span>
+                  <div>
+                    {activeEffectLabels.length ? (
+                      activeEffectLabels.map((label) => <em key={label}>{label}</em>)
+                    ) : (
+                      <em className="muted">활성 효과 없음</em>
+                    )}
+                  </div>
+                </div>
+                <ul className="pvp-log-list">
+                  {gameLogs.length ? (
+                    gameLogs.map((log) => (
+                      <li key={log.id}>
+                        <strong>{log.timestamp}</strong>
+                        <span>{log.text}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="empty" aria-hidden="true" />
+                  )}
                 </ul>
-                {hintMessage ? <p className="pvp-hint">{hintMessage}</p> : null}
               </div>
 
               <div className="pvp-card pvp-opponent">
                 <div className="pvp-card-head">
                   <h2>상대 정보</h2>
                 </div>
-                <div className="pvp-opponent-body">
-                  <p>{opponentProfile.nickname}</p>
-                  <span>{`ID: ${opponentProfile.loginId}`}</span>
-                  <strong>{opponentProfile.rank}</strong>
-                  <em>{`보유자산 ${formatCurrency(opponentProfile.totalAsset || opponentCash)}`}</em>
-                  <small>{`승률 ${Number.isFinite(opponentProfile.winRate) ? opponentProfile.winRate.toFixed(1) : '0.0'}%`}</small>
-                  {opponents.length > 1 ? (
-                    <small>{'참가자 ' + (opponents.length + 1) + '명'}</small>
-                  ) : null}
-                </div>
-                {opponents.length > 1 ? (
-                  <ul>
-                    {opponents.map((opponent) => (
-                      <li key={opponent.loginId}>
-                        {opponent.nickname + ' · ' + formatCurrency(opponent.totalAsset)}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
+                {isMultiOpponentMatch ? (
+                  <button type="button" className="pvp-opponent-open-button" onClick={() => setOpponentDialog('info')}>
+                    상대 정보
+                  </button>
+                ) : (
+                  <div className="pvp-opponent-body">
+                    <p>{opponentProfile.nickname}</p>
+                    <span>{`ID: ${opponentProfile.loginId}`}</span>
+                    <strong>{opponentProfile.rank}</strong>
+                    <small>{`랭크 점수 ${Math.max(0, Math.floor(opponentProfile.rankScore || 0))}점`}</small>
+                    <em>{`보유자산 ${formatCurrency(opponentProfile.totalAsset || opponentCash)}`}</em>
+                    <small>{`승률 ${Number.isFinite(opponentProfile.winRate) ? opponentProfile.winRate.toFixed(1) : '0.0'}%`}</small>
+                  </div>
+                )}
               </div>
             </div>
           </section>
@@ -838,26 +1164,177 @@ export default function StockGameTab({ loginId }) {
                     ×
                   </button>
                 </div>
+                {purchaseToast?.target === 'item' ? (
+                  <div key={purchaseToast.id} className="modal-floating-toast" role="status" aria-live="polite">
+                    {purchaseToast.message}
+                  </div>
+                ) : null}
                 <div className="pvp-item-list">
                   {ITEM_DEFINITIONS.map((item) => (
                     <article key={item.key}>
-                      <strong>{item.name}</strong>
+                      <div className="pvp-item-card-head">
+                        <strong>{item.name}</strong>
+                        <span className="pvp-item-count" aria-label={`${item.name} 보유 수량`}>
+                          {itemInventoryCounts[item.key] ?? 0}개
+                        </span>
+                      </div>
                       <p>{item.description}</p>
                       <em>{formatCurrency(item.price)}</em>
-                      <div>
-                        <button type="button" className="pvp-item-buy-btn" onClick={() => handleBuyItem(item)} disabled={isTradeLocked}>
+                      <div className="pvp-item-actions">
+                        <button
+                          type="button"
+                          className={[
+                            'pvp-item-buy-btn',
+                            itemErrorPulseKey.startsWith(`${item.key}-buy-`) ? 'is-denied-shake' : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                          onClick={() => handleBuyItem(item)}
+                          disabled={isTradeLocked}
+                        >
                           구매
                         </button>
                         <button
                           type="button"
+                          className={itemErrorPulseKey.startsWith(`${item.key}-use-`) ? 'is-denied-shake' : ''}
                           onClick={() => handleUseItem(item.key)}
-                          disabled={isTradeLocked || !inventory.includes(item.key)}
+                          disabled={isTradeLocked}
                         >
                           사용
                         </button>
                       </div>
                     </article>
                   ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {tradeDialog ? (
+            <div className="modal-backdrop" role="presentation" onClick={closeTradeDialog}>
+              <div
+                className="trade-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="stock-game-trade-title"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="trade-modal-head">
+                  <div>
+                    <p className="trade-modal-eyebrow">{gameStockName || gameStockCode || '게임 종목'}</p>
+                    <h3 id="stock-game-trade-title">{tradeDialog === 'buy' ? '매수 주문' : '매도 주문'}</h3>
+                  </div>
+                  <button type="button" className="trade-close" onClick={closeTradeDialog}>
+                    ×
+                  </button>
+                </div>
+
+                <div className="trade-modal-body">
+                  <div className="trade-price-box">
+                    <span>현재가</span>
+                    <strong>{formatCurrency(currentPrice)}</strong>
+                  </div>
+
+                  <label className="trade-field">
+                    <span>수량</span>
+                    <div className="trade-stepper">
+                      <button type="button" onClick={() => handleTradeQuantityChange(Math.max(1, normalizedTradeQuantity - 1))}>
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={tradeQuantity}
+                        onChange={(event) => handleTradeQuantityChange(Number(event.target.value))}
+                      />
+                      <button type="button" onClick={() => handleTradeQuantityChange(normalizedTradeQuantity + 1)}>
+                        +
+                      </button>
+                    </div>
+                  </label>
+
+                  <div className="trade-summary">
+                    <span>{tradeDialog === 'buy' ? '예상 매수 금액' : '예상 매도 정산'}</span>
+                    <strong>
+                      {tradeDialog === 'buy'
+                        ? formatCurrency(estimatedBuyCost)
+                        : formatCurrency(currentPrice * normalizedTradeQuantity - estimatedSellFee + estimatedSellBonus)}
+                    </strong>
+                  </div>
+
+                  <p className="trade-limit">
+                    {tradeDialog === 'buy'
+                      ? `현재 자금 기준 최대 ${maxBuyQuantity}주까지 매수할 수 있습니다.`
+                      : `현재 보유 ${holdingQty}주까지 매도할 수 있습니다.`}
+                  </p>
+                </div>
+
+                {purchaseToast?.target === 'trade' ? (
+                  <div key={purchaseToast.id} className="modal-floating-toast" role="status" aria-live="polite">
+                    {purchaseToast.message}
+                  </div>
+                ) : null}
+                <div className="trade-modal-actions">
+                  <button type="button" className="secondary" onClick={closeTradeDialog}>
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    className={[
+                      tradeDialog === 'buy' ? 'primary buy' : 'primary sell',
+                      tradeErrorPulse ? 'is-denied-shake' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    onClick={handleConfirmTrade}
+                  >
+                    {tradeDialog === 'buy' ? '매수 확정' : '매도 확정'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {opponentDialog ? (
+            <div className="modal-backdrop" role="presentation" onClick={() => setOpponentDialog(null)}>
+              <div
+                className="trade-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="stock-game-opponent-dialog-title"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="trade-modal-head">
+                  <div>
+                    <p className="trade-modal-eyebrow">{`${opponents.length + 1}인 매치`}</p>
+                    <h3 id="stock-game-opponent-dialog-title">
+                      {opponentDialog === 'cash' ? '상대 자금' : '상대 정보'}
+                    </h3>
+                  </div>
+                  <button type="button" className="trade-close" onClick={() => setOpponentDialog(null)}>
+                    ×
+                  </button>
+                </div>
+
+                <div className="trade-modal-body pvp-opponent-dialog-list">
+                  {opponents.map((opponent) =>
+                    opponentDialog === 'cash' ? (
+                      <article key={opponent.loginId} className="pvp-opponent-dialog-item">
+                        <strong>{opponent.nickname}</strong>
+                        <span>{formatCurrency(opponent.totalAsset || opponent.cash || 0)}</span>
+                      </article>
+                    ) : (
+                      <article key={opponent.loginId} className="pvp-opponent-dialog-item pvp-opponent-dialog-item-info">
+                        <strong>{opponent.nickname}</strong>
+                        <span>{`ID: ${opponent.loginId}`}</span>
+                        <span>{`랭크: ${opponent.rank}`}</span>
+                        <span>{`랭크 점수 ${Math.max(0, Math.floor(opponent.rankScore || 0))}점`}</span>
+                        <em>{`보유자산 ${formatCurrency(opponent.totalAsset || opponent.cash || 0)}`}</em>
+                        <span>{`승률 ${Number.isFinite(opponent.winRate) ? opponent.winRate.toFixed(1) : '0.0'}%`}</span>
+                      </article>
+                    ),
+                  )}
                 </div>
               </div>
             </div>
@@ -903,14 +1380,18 @@ export default function StockGameTab({ loginId }) {
           </header>
 
           <div className="stock-game-rank-summary">
-            <p>{'현재 랭크: 브론즈'}</p>
-            <p>{'현재 점수: 0점'}</p>
+            <p>{`현재 랭크: ${currentRank}`}</p>
+            <p>{`현재 점수: ${myRankScore}점`}</p>
           </div>
 
           <div className="stock-game-rank-rule">
             <p>{'랭크 티어: 브론즈 / 실버 / 골드 / 플래티넘 / 다이아'}</p>
-            <p>{'티어별 점수 기준: 200 / 400 / 600 / 800 / 1000'}</p>
-            <p>{'기본 획득 점수: 15점'}</p>
+            <p>{'티어 점수 구간: 0~199 / 200~399 / 400~599 / 600~799 / 800+'}</p>
+            <p>
+              {matchMode === '1vs1'
+                ? '승리시 25점을 획득, 패배시 25점이 차감됩니다.'
+                : '5위: -10점 / 4위: 0점 / 3위: 10점 / 2위: 20점 / 1위: 30점'}
+            </p>
           </div>
 
           <p className="stock-game-match-desc">
@@ -943,8 +1424,3 @@ export default function StockGameTab({ loginId }) {
     </section>
   );
 }
-
-
-
-
-

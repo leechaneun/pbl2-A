@@ -105,7 +105,7 @@ function normalizeTimestamp(value) {
       return normalizeTimestamp(numericValue);
     }
 
-    const dateValue = new Date(value).getTime();
+    const dateValue = new Date(value).getTime()+9 * 60 * 60 * 1000;
     return Number.isNaN(dateValue) ? null : Math.floor(dateValue / 1000);
   }
 
@@ -275,11 +275,11 @@ async function fetchQuizzes(signal, quizType) {
   throw latestError || new Error('퀴즈를 불러오지 못했습니다.');
 }
 
-async function registerUser({ loginId, password, signal }) {
+async function registerUser({ loginId, password, nickname, signal }) {
   return requestApi('/user/register', {
     method: 'POST',
     signal,
-    body: { loginId, password },
+    body: { loginId, password, nickname },
   });
 }
 
@@ -558,6 +558,21 @@ function AuthScreen({
         </div>
 
         <form className="auth-form" onSubmit={onSubmit}>
+          {mode === 'register' ? (
+            <label className="auth-field">
+              <span>닉네임</span>
+              <input
+                type="text"
+                name="nickname"
+                autoComplete="nickname"
+                value={form.nickname ?? ''}
+                onChange={onFormChange}
+                disabled={isSubmitting}
+                placeholder="닉네임을 입력하세요"
+              />
+            </label>
+          ) : null}
+
           <label className="auth-field">
             <span>아이디</span>
             <input
@@ -599,7 +614,7 @@ function AuthScreen({
 function App() {
   const [activeMenuPath, setActiveMenuPath] = useState(() => normalizeMenuPath(window.location.pathname));
   const [authMode, setAuthMode] = useState('login');
-  const [authForm, setAuthForm] = useState({ loginId: '', password: '' });
+  const [authForm, setAuthForm] = useState({ nickname: '', loginId: '', password: '' });
   const [authUser, setAuthUser] = useState(null);
   const [authErrorMessage, setAuthErrorMessage] = useState('');
   const [authHelperMessage, setAuthHelperMessage] = useState(() =>
@@ -877,11 +892,16 @@ function App() {
   async function handleAuthSubmit(event) {
     event.preventDefault();
 
+    const nextNickname = authForm.nickname.trim();
     const nextLoginId = authForm.loginId.trim();
     const nextPassword = authForm.password.trim();
 
     if (!nextLoginId || !nextPassword) {
       setAuthErrorMessage('아이디와 비밀번호를 모두 입력해 주세요.');
+      return;
+    }
+    if (authMode === 'register' && !nextNickname) {
+      setAuthErrorMessage('회원가입 시 닉네임을 입력해 주세요.');
       return;
     }
 
@@ -891,13 +911,13 @@ function App() {
 
     try {
       if (authMode === 'register') {
-        await registerUser({ loginId: nextLoginId, password: nextPassword });
+        await registerUser({ loginId: nextLoginId, password: nextPassword, nickname: nextNickname });
         setAuthHelperMessage('회원가입이 완료되었습니다. 같은 정보로 로그인합니다.');
       }
 
       const user = await loginUser({ loginId: nextLoginId, password: nextPassword });
       setAuthUser(user);
-      setAuthForm({ loginId: nextLoginId, password: '' });
+      setAuthForm({ nickname: '', loginId: nextLoginId, password: '' });
       setActiveMenuPath(DEFAULT_MENU_PATH);
       pushMenuState(DEFAULT_MENU_PATH);
     } catch (error) {
@@ -1169,9 +1189,14 @@ function App() {
       case '/mypage':
         return <MyPageTab apiBaseUrl={API_BASE_URL} loginId={loginId} />;
       case '/stock-game':
-        return <StockGameTab loginId={loginId} />;
+        return <StockGameTab loginId={loginId} initialRankScore={Number(authUser?.rankScore ?? 0)} />;
       case '/quiz':
-        return <QuizTab fetchQuizzes={fetchQuizzes} />;
+        return (
+          <QuizTab
+            fetchQuizzes={fetchQuizzes}
+            completeMission={(missionType, signal) => completeMission(loginId, missionType, signal)}
+          />
+        );
       case '/tutorial':
         return (
           <MissionTab

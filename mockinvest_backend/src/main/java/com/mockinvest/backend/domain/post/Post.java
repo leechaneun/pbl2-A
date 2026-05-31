@@ -29,7 +29,7 @@ public class Post {
     private String position;
     private Double yield;
 
-    private Long viewCount = 0L;
+    private Long viewCount = -1L;
     private List<String> likedUsers = new ArrayList<>();
 
     // [추가] 댓글 리스트

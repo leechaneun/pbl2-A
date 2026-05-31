@@ -7,6 +7,7 @@ import com.mockinvest.backend.domain.mission.MissionRepository;
 import com.mockinvest.backend.domain.post.Post;
 import com.mockinvest.backend.domain.post.PostRepository; // 필요 시 쿼리 메서드 추가
 import com.mockinvest.backend.domain.stock.Stock;
+import com.mockinvest.backend.domain.stockgame.history.StockGameMatchHistory1vs1;
 import com.mockinvest.backend.domain.stock.StockRepository;
 import com.mockinvest.backend.domain.trade.Trade;
 import com.mockinvest.backend.domain.trade.TradeRepository;
@@ -14,10 +15,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -85,10 +88,19 @@ public class MyPageService {
         Query query = new Query(Criteria.where("author").is(loginId));
         List<Post> myPosts = mongoTemplate.find(query, Post.class);
 
-        // 5. 종합 DTO 조립 및 반환
+        // 5. 1vs1 매치 히스토리 조회 (players.loginId == loginId)
+        Query matchHistoryQuery = new Query(Criteria.where("players.loginId").is(loginId))
+                .with(Sort.by(Sort.Direction.DESC, "finishedAt"));
+        List<StockGameMatchHistory1vs1> histories = mongoTemplate.find(matchHistoryQuery, StockGameMatchHistory1vs1.class);
+        List<MyPageResponseDto.MatchHistoryDto> matchHistoryDtos = histories.stream()
+                .map(history -> toMatchHistoryDto(history, loginId))
+                .filter(Objects::nonNull)
+                .toList();
+
+        // 6. 종합 DTO 조립 및 반환
         return MyPageResponseDto.builder()
                 .loginId(member.getLoginId())
-                .name(member.getName())
+                .name(member.getNickname())
                 .cashBalance(member.getBalance())
                 .totalStockValue(totalStockValue)
                 .totalInvestment(totalInvestment)
@@ -96,6 +108,42 @@ public class MyPageService {
                 .myStocks(myStockDtos)
                 .missionStatus(mission)
                 .myPosts(myPosts)
+                .matchHistories(matchHistoryDtos)
+                .build();
+    }
+
+    private MyPageResponseDto.MatchHistoryDto toMatchHistoryDto(StockGameMatchHistory1vs1 history, String loginId) {
+        if (history == null || history.getPlayers() == null || history.getPlayers().isEmpty()) {
+            return null;
+        }
+
+        StockGameMatchHistory1vs1.PlayerRecord me = history.getPlayers().stream()
+                .filter(player -> loginId.equals(player.getLoginId()))
+                .findFirst()
+                .orElse(null);
+
+        if (me == null) {
+            return null;
+        }
+
+        List<MyPageResponseDto.OpponentDto> opponents = history.getPlayers().stream()
+                .filter(player -> !loginId.equals(player.getLoginId()))
+                .map(player -> MyPageResponseDto.OpponentDto.builder()
+                        .loginId(player.getLoginId())
+                        .nickname(player.getNickname())
+                        .result(player.getResult())
+                        .finalAsset(player.getFinalAsset())
+                        .build())
+                .toList();
+
+        return MyPageResponseDto.MatchHistoryDto.builder()
+                .roomId(history.getRoomId())
+                .stockCode(history.getStockCode())
+                .stockName(history.getStockName())
+                .finishedAt(history.getFinishedAt())
+                .myResult(me.getResult())
+                .myFinalAsset(me.getFinalAsset())
+                .opponents(opponents)
                 .build();
     }
 }

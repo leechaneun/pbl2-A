@@ -5,6 +5,7 @@ import com.mockinvest.backend.domain.mission.MissionService;
 import com.mockinvest.backend.domain.mission.MissionType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 

@@ -10,6 +10,7 @@ function normalizeQuizItem(rawQuiz, index) {
     id: String(rawQuiz.id ?? rawQuiz.quizId ?? `quiz-${index + 1}`),
     question,
     answer,
+    hint: String(rawQuiz.hint ?? '').trim(),
   };
 }
 
@@ -26,7 +27,7 @@ const QUIZ_TYPES = [
   { key: 'RANDOM', label: '랜덤', description: '모든 카테고리에서 무작위 출제' },
 ];
 
-export default function QuizTab({ fetchQuizzes }) {
+export default function QuizTab({ fetchQuizzes, completeMission }) {
   const [viewMode, setViewMode] = useState('landing');
   const [quizzes, setQuizzes] = useState([]);
   const [selectedType, setSelectedType] = useState('');
@@ -37,6 +38,8 @@ export default function QuizTab({ fetchQuizzes }) {
   const [feedback, setFeedback] = useState('');
   const [score, setScore] = useState(0);
   const [isSolved, setIsSolved] = useState(false);
+  const [isQuizMissionCompleted, setIsQuizMissionCompleted] = useState(false);
+  const [isHintVisible, setIsHintVisible] = useState(false);
 
   const currentQuiz = quizzes[currentIndex] ?? null;
   const progressText = useMemo(() => {
@@ -64,6 +67,7 @@ export default function QuizTab({ fetchQuizzes }) {
       setScore(0);
       setFeedback('');
       setIsSolved(false);
+      setIsHintVisible(false);
       setViewMode('quiz');
     } catch (error) {
       if (error?.name !== 'AbortError') {
@@ -75,7 +79,7 @@ export default function QuizTab({ fetchQuizzes }) {
     }
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     if (!currentQuiz || !answerInput.trim()) {
@@ -88,6 +92,15 @@ export default function QuizTab({ fetchQuizzes }) {
       setFeedback('정답입니다!');
       setScore((current) => current + (isSolved ? 0 : 1));
       setIsSolved(true);
+
+      if (!isSolved && !isQuizMissionCompleted && typeof completeMission === 'function') {
+        try {
+          await completeMission('QUIZ');
+          setIsQuizMissionCompleted(true);
+        } catch (error) {
+          console.error('퀴즈 미션 완료 처리 실패:', error);
+        }
+      }
       return;
     }
 
@@ -110,6 +123,7 @@ export default function QuizTab({ fetchQuizzes }) {
     setAnswerInput('');
     setFeedback('');
     setIsSolved(false);
+    setIsHintVisible(false);
   }
 
   function handleOpenTypeSelect() {
@@ -125,6 +139,10 @@ export default function QuizTab({ fetchQuizzes }) {
   function handleBackToTypeSelect() {
     setViewMode('type-select');
     setErrorMessage('');
+  }
+
+  function handleToggleHint() {
+    setIsHintVisible((current) => !current);
   }
 
   if (isLoading) {
@@ -240,6 +258,15 @@ export default function QuizTab({ fetchQuizzes }) {
         <p className="quiz-question-label">문제</p>
         <h2>{currentQuiz.question}</h2>
 
+        {currentQuiz.hint ? (
+          <div className="quiz-hint-block">
+            <button type="button" className="quiz-hint-toggle" onClick={handleToggleHint}>
+              {isHintVisible ? '힌트 숨기기' : '힌트 보기'}
+            </button>
+            {isHintVisible ? <p className="quiz-hint-text">{currentQuiz.hint}</p> : null}
+          </div>
+        ) : null}
+
         <form className="quiz-form" onSubmit={handleSubmit}>
           <input
             type="text"
@@ -255,7 +282,7 @@ export default function QuizTab({ fetchQuizzes }) {
 
         {feedback ? <p className={`quiz-feedback ${isSolved ? 'success' : 'error'}`}>{feedback}</p> : null}
 
-        <div className="quiz-actions">
+        <div className="quiz-actions quiz-next-actions">
           <button type="button" onClick={handleNext}>
             다음 문제
           </button>

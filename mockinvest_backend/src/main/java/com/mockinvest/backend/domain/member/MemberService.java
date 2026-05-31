@@ -20,6 +20,10 @@ public class MemberService {
         if (memberRepository.findByLoginId(member.getLoginId()) != null) {
             throw new IllegalArgumentException("이미 존재하는 로그인 아이디입니다.");
         }
+        String nickname = member.getNickname();
+        if (nickname != null && !nickname.trim().isEmpty() && memberRepository.findByNickname(nickname.trim()) != null) {
+            throw new IllegalArgumentException("중복된 닉네임입니다.");
+        }
         return memberRepository.save(member);
     }
 

@@ -133,6 +133,8 @@ function normalizeMissionStatus(missionStatus) {
 }
 
 function normalizeDashboard(payload, fallbackLoginId) {
+  const matchHistories = Array.isArray(payload?.matchHistories) ? payload.matchHistories : [];
+
   return {
     loginId: String(payload?.loginId ?? fallbackLoginId ?? ''),
     name: String(payload?.name ?? '').trim() || '사용자',
@@ -143,6 +145,24 @@ function normalizeDashboard(payload, fallbackLoginId) {
     myStocks: Array.isArray(payload?.myStocks) ? payload.myStocks.map(normalizeStock) : [],
     missionStatus: normalizeMissionStatus(payload?.missionStatus),
     myPosts: Array.isArray(payload?.myPosts) ? payload.myPosts.map(normalizePost) : [],
+    matchHistories: matchHistories.map((history, index) => ({
+      id: String(history?.roomId ?? `history-${index}`),
+      roomId: String(history?.roomId ?? ''),
+      stockCode: String(history?.stockCode ?? '').trim(),
+      stockName: String(history?.stockName ?? '').trim() || '종목 정보 없음',
+      finishedAt: history?.finishedAt ?? null,
+      myResult: String(history?.myResult ?? '').trim().toUpperCase() || 'UNKNOWN',
+      myFinalAsset: Number(history?.myFinalAsset ?? 0),
+      opponents: Array.isArray(history?.opponents)
+        ? history.opponents.map((opponent, opponentIndex) => ({
+            id: `${history?.roomId ?? index}-opponent-${opponentIndex}`,
+            loginId: String(opponent?.loginId ?? '').trim(),
+            nickname: String(opponent?.nickname ?? '').trim() || '상대',
+            result: String(opponent?.result ?? '').trim().toUpperCase() || 'UNKNOWN',
+            finalAsset: Number(opponent?.finalAsset ?? 0),
+          }))
+        : [],
+    })),
   };
 }
 
@@ -388,6 +408,51 @@ export default function MyPageTab({ apiBaseUrl, loginId }) {
               </div>
             ) : (
               <EmptyState title="작성한 게시글이 없습니다." description="게시판에서 글을 작성하면 이 영역에 표시됩니다." />
+            )}
+          </section>
+
+          <section className="mypage-card mypage-match-history-card">
+            <div className="mypage-card-head">
+              <h2>1vs1 매치 히스토리</h2>
+            </div>
+
+            {isLoading ? (
+              <EmptyState title="매치 히스토리를 불러오는 중입니다." />
+            ) : dashboard.matchHistories.length ? (
+              <div className="mypage-match-history-list">
+                {dashboard.matchHistories.map((history) => (
+                  <article key={history.id} className="mypage-match-history-item">
+                    <div className="mypage-match-history-main">
+                      <div>
+                        <strong>{`${history.stockName} (${history.stockCode || '-'})`}</strong>
+                        <p>{`매치 ID: ${history.roomId || '-'}`}</p>
+                      </div>
+                      <span className={history.myResult === 'WIN' ? 'win' : history.myResult === 'LOSE' ? 'lose' : ''}>
+                        {history.myResult === 'WIN' ? '승리' : history.myResult === 'LOSE' ? '패배' : '무승부'}
+                      </span>
+                    </div>
+
+                    <div className="mypage-match-history-metrics">
+                      <span>{`내 최종 자산 ${formatCurrency(history.myFinalAsset)}`}</span>
+                      <span>{`종료 시각 ${formatDate(history.finishedAt)}`}</span>
+                    </div>
+
+                    {history.opponents.length ? (
+                      <div className="mypage-match-history-opponents">
+                        {history.opponents.map((opponent) => (
+                          <p key={opponent.id}>
+                            {`${opponent.nickname}(${opponent.loginId || '-'}) · ${
+                              opponent.result === 'WIN' ? '승리' : opponent.result === 'LOSE' ? '패배' : '무승부'
+                            } · ${formatCurrency(opponent.finalAsset)}`}
+                          </p>
+                        ))}
+                      </div>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <EmptyState title="저장된 1vs1 매치 기록이 없습니다." description="1vs1 매치를 완료하면 이 영역에 기록됩니다." />
             )}
           </section>
         </div>
