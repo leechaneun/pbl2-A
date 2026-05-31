@@ -105,7 +105,7 @@ function normalizeTimestamp(value) {
       return normalizeTimestamp(numericValue);
     }
 
-    const dateValue = new Date(value).getTime();
+    const dateValue = new Date(value).getTime()* 60 * 1000;
     return Number.isNaN(dateValue) ? null : Math.floor(dateValue / 1000);
   }
 
