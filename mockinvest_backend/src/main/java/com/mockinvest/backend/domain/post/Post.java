@@ -29,13 +29,15 @@ public class Post {
     private String stockName;
     private String position;
     private Double yield;
+    private String createdAt;
+
 
     private Long viewCount = -1L;
     private List<String> likedUsers = new ArrayList<>();
 
     // [추가] 댓글 리스트
     private List<Comment> comments = new ArrayList<>();
-    private String createdAt;
+
     @Builder
     public Post(String title, String content, String author, String category, String stockCode, String stockName, String position, Double yield) {
         this.title = title;
