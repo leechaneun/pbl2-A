@@ -35,7 +35,7 @@ public class Post {
 
     // [추가] 댓글 리스트
     private List<Comment> comments = new ArrayList<>();
-
+    private String createdAt;
     @Builder
     public Post(String title, String content, String author, String category, String stockCode, String stockName, String position, Double yield) {
         this.title = title;
@@ -46,6 +46,7 @@ public class Post {
         this.stockName = stockName;
         this.position = position;
         this.yield = yield;
+        this.createdAt = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
     }
 
     public void incrementViewCount() {
