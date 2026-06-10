@@ -32,7 +32,9 @@ public class Post {
     private Double yield;
 
     @Field("createdAt")
-    private String createdAt;
+    private String createdAt =
+            LocalDateTime.now()
+                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
 
     private Long viewCount = -1L;
