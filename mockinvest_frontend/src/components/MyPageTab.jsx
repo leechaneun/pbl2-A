@@ -61,8 +61,7 @@ function formatSignedPercent(value) {
 
 function formatDate(value) {
   if (!value) {
-    return '-';}
-    return String(value);
+    return '-';
   }
 
   const date = new Date(value);
