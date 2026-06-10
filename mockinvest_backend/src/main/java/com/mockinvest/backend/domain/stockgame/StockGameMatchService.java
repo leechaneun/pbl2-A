@@ -230,6 +230,10 @@ public class StockGameMatchService {
                 players,
                 MATCH_SECONDS,
                 scenario.closePrices(),
+                scenario.openPrices(),
+                scenario.highPrices(),
+                scenario.lowPrices(),
+                scenario.volumes(),
                 scenario.stockCode(),
                 scenario.stockName(),
                 scenario.fromDate(),
@@ -248,11 +252,13 @@ public class StockGameMatchService {
 
     private StockGameHistoryService.GameChartScenario buildFallbackScenario() {
         List<Long> prices = new ArrayList<>();
+        List<Long> volumes = new ArrayList<>();
         long price = 100_000L;
         for (int index = 0; index < FALLBACK_SCENARIO_LENGTH; index += 1) {
             double noise = (ThreadLocalRandom.current().nextDouble() - 0.48) * 0.02;
             price = Math.max(35_000L, Math.round(price * (1 + noise)));
             prices.add(price);
+            volumes.add(ThreadLocalRandom.current().nextLong(150_000L, 2_400_000L));
         }
 
         return new StockGameHistoryService.GameChartScenario(
@@ -261,7 +267,11 @@ public class StockGameMatchService {
                 1,
                 "-",
                 "-",
-                prices
+                prices,
+                prices,
+                prices,
+                prices,
+                volumes
         );
     }
 
@@ -282,7 +292,15 @@ public class StockGameMatchService {
             payload.put("scenarioTo", room.getScenarioTo());
             payload.put("lookbackYears", room.getLookbackYears());
             payload.put("currentPrice", room.getCurrentPrice());
+            payload.put("currentOpenPrice", room.getCurrentOpenPrice());
+            payload.put("currentHighPrice", room.getCurrentHighPrice());
+            payload.put("currentLowPrice", room.getCurrentLowPrice());
             payload.put("prices", room.getPrices());
+            payload.put("openPrices", revealScenarioPrices(room.getScenarioOpenPrices(), room.getPrices().size()));
+            payload.put("highPrices", revealScenarioPrices(room.getScenarioHighPrices(), room.getPrices().size()));
+            payload.put("lowPrices", revealScenarioPrices(room.getScenarioLowPrices(), room.getPrices().size()));
+            payload.put("currentVolume", room.getCurrentVolume());
+            payload.put("volumes", revealScenarioPrices(room.getScenarioVolumes(), room.getPrices().size()));
             payload.put("rankScore", me.getRankScore());
             payload.put("rank", determineTierFromScore(me.getRankScore()));
             payload.put("winRate", calculateWinRate(myMember));
@@ -327,6 +345,18 @@ public class StockGameMatchService {
             int scenarioIndex = resolveScenarioIndex(room.getScenarioPrices().size(), elapsed);
             if (!room.getScenarioPrices().isEmpty() && scenarioIndex >= 0 && scenarioIndex < room.getScenarioPrices().size()) {
                 room.setCurrentPrice(room.getScenarioPrices().get(scenarioIndex));
+                if (scenarioIndex < room.getScenarioOpenPrices().size()) {
+                    room.setCurrentOpenPrice(room.getScenarioOpenPrices().get(scenarioIndex));
+                }
+                if (scenarioIndex < room.getScenarioHighPrices().size()) {
+                    room.setCurrentHighPrice(room.getScenarioHighPrices().get(scenarioIndex));
+                }
+                if (scenarioIndex < room.getScenarioLowPrices().size()) {
+                    room.setCurrentLowPrice(room.getScenarioLowPrices().get(scenarioIndex));
+                }
+                if (scenarioIndex < room.getScenarioVolumes().size()) {
+                    room.setCurrentVolume(room.getScenarioVolumes().get(scenarioIndex));
+                }
                 int revealSize = Math.max(1, scenarioIndex + 1);
                 room.getPrices().clear();
                 room.getPrices().addAll(room.getScenarioPrices().subList(0, revealSize));
@@ -373,7 +403,15 @@ public class StockGameMatchService {
         payload.put("participantCount", room.getPlayers().size());
         payload.put("remainingSeconds", room.getRemainingSeconds());
         payload.put("currentPrice", room.getCurrentPrice());
+        payload.put("currentOpenPrice", room.getCurrentOpenPrice());
+        payload.put("currentHighPrice", room.getCurrentHighPrice());
+        payload.put("currentLowPrice", room.getCurrentLowPrice());
         payload.put("prices", room.getPrices());
+        payload.put("openPrices", revealScenarioPrices(room.getScenarioOpenPrices(), room.getPrices().size()));
+        payload.put("highPrices", revealScenarioPrices(room.getScenarioHighPrices(), room.getPrices().size()));
+        payload.put("lowPrices", revealScenarioPrices(room.getScenarioLowPrices(), room.getPrices().size()));
+        payload.put("currentVolume", room.getCurrentVolume());
+        payload.put("volumes", revealScenarioPrices(room.getScenarioVolumes(), room.getPrices().size()));
         payload.put("stockCode", room.getStockCode());
         payload.put("stockName", room.getStockName());
         payload.put("scenarioFrom", room.getScenarioFrom());
@@ -717,6 +755,14 @@ public class StockGameMatchService {
         return Math.min(scenarioSize - 1, (int) Math.floor(progress * (scenarioSize - 1)));
     }
 
+    private List<Long> revealScenarioPrices(List<Long> scenarioPrices, int revealSize) {
+        if (scenarioPrices == null || scenarioPrices.isEmpty()) {
+            return List.of();
+        }
+        int safeRevealSize = Math.max(1, Math.min(revealSize, scenarioPrices.size()));
+        return new ArrayList<>(scenarioPrices.subList(0, safeRevealSize));
+    }
+
     private PlayerState createPlayerState(WebSocketSession session, String loginId) {
         Member member = memberRepository.findByLoginId(loginId);
         String nickname = member != null && member.getNickname() != null && !member.getNickname().isBlank()
@@ -860,4 +906,3 @@ public class StockGameMatchService {
         }
     }
 }
-

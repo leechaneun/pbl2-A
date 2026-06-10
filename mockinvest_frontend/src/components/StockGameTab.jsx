@@ -117,16 +117,31 @@ function generateMockMarket() {
   ];
 
   const points = [];
+  const openPrices = [];
+  const highPrices = [];
+  const lowPrices = [];
+  const volumes = [];
   const news = [];
   let price = 100000;
   const baseDate = new Date();
   baseDate.setMonth(baseDate.getMonth() - 3);
 
   for (let day = 0; day < TOTAL_DAYS; day += 1) {
+    const open = day === 0 ? price : points[day - 1];
     const noise = (Math.random() - 0.48) * 0.038;
     const momentum = Math.sin(day / 9) * 0.006;
-    price = Math.max(35000, Math.round(price * (1 + noise + momentum)));
-    points.push(price);
+    const close = Math.max(35000, Math.round(open * (1 + noise + momentum)));
+    const upperWickRate = 0.002 + Math.random() * 0.018;
+    const lowerWickRate = 0.002 + Math.random() * 0.018;
+    const high = Math.max(open, close, Math.round(Math.max(open, close) * (1 + upperWickRate)));
+    const low = Math.max(30000, Math.min(open, close, Math.round(Math.min(open, close) * (1 - lowerWickRate))));
+
+    openPrices.push(open);
+    highPrices.push(high);
+    lowPrices.push(low);
+    volumes.push(Math.max(120000, Math.round((0.75 + Math.random() * 1.25) * 1000000 * (1 + Math.abs(noise) * 6))));
+    points.push(close);
+    price = close;
 
     if (day % 4 === 0 || day === TOTAL_DAYS - 1) {
       const date = new Date(baseDate);
@@ -139,7 +154,7 @@ function generateMockMarket() {
     }
   }
 
-  return { points, news };
+  return { points, news, openPrices, highPrices, lowPrices, volumes };
 }
 
 function determineRankFromScore(score) {
@@ -198,6 +213,12 @@ export default function StockGameTab({ loginId, initialRankScore = 0 }) {
   const [scenarioFrom, setScenarioFrom] = useState('');
   const [scenarioTo, setScenarioTo] = useState('');
   const [lookbackYears, setLookbackYears] = useState(1);
+  const [currentHighPrice, setCurrentHighPrice] = useState(0);
+  const [currentLowPrice, setCurrentLowPrice] = useState(0);
+  const [openPrices, setOpenPrices] = useState([]);
+  const [highPrices, setHighPrices] = useState([]);
+  const [lowPrices, setLowPrices] = useState([]);
+  const [volumes, setVolumes] = useState([]);
   const gameTimerRef = useRef(null);
   const marketTimerRef = useRef(null);
   const effectTimerRef = useRef(null);
@@ -217,6 +238,17 @@ export default function StockGameTab({ loginId, initialRankScore = 0 }) {
   const previousEffectsRef = useRef([]);
   const hasReceivedSnapshotRef = useRef(false);
   const socketUrls = useMemo(() => buildRealtimeSocketUrls(), []);
+
+  function applyLocalMarketSnapshot(nextMarketData, nextMarketIndex) {
+    setMarketData(nextMarketData);
+    setMarketIndex(nextMarketIndex);
+    setOpenPrices(nextMarketData.openPrices ?? []);
+    setHighPrices(nextMarketData.highPrices ?? []);
+    setLowPrices(nextMarketData.lowPrices ?? []);
+    setVolumes(nextMarketData.volumes ?? []);
+    setCurrentHighPrice(nextMarketData.highPrices?.[nextMarketIndex] ?? 0);
+    setCurrentLowPrice(nextMarketData.lowPrices?.[nextMarketIndex] ?? 0);
+  }
 
   function sendSocketAction(action, payload = {}) {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
@@ -330,6 +362,12 @@ export default function StockGameTab({ loginId, initialRankScore = 0 }) {
     if (typeof eventData.lookbackYears === 'number' && Number.isFinite(eventData.lookbackYears)) {
       setLookbackYears(Math.max(1, Math.min(3, Math.floor(eventData.lookbackYears))));
     }
+    if (typeof eventData.currentHighPrice === 'number' && Number.isFinite(eventData.currentHighPrice)) {
+      setCurrentHighPrice(Math.round(eventData.currentHighPrice));
+    }
+    if (typeof eventData.currentLowPrice === 'number' && Number.isFinite(eventData.currentLowPrice)) {
+      setCurrentLowPrice(Math.round(eventData.currentLowPrice));
+    }
     if (Array.isArray(eventData.inventory)) {
       setInventory(eventData.inventory);
     }
@@ -338,6 +376,18 @@ export default function StockGameTab({ loginId, initialRankScore = 0 }) {
     }
     if (Array.isArray(eventData.news)) {
       setMarketData((current) => ({ ...current, news: eventData.news }));
+    }
+    if (Array.isArray(eventData.openPrices)) {
+      setOpenPrices(eventData.openPrices.map((price) => Number(price)).filter((price) => Number.isFinite(price)));
+    }
+    if (Array.isArray(eventData.highPrices)) {
+      setHighPrices(eventData.highPrices.map((price) => Number(price)).filter((price) => Number.isFinite(price)));
+    }
+    if (Array.isArray(eventData.lowPrices)) {
+      setLowPrices(eventData.lowPrices.map((price) => Number(price)).filter((price) => Number.isFinite(price)));
+    }
+    if (Array.isArray(eventData.volumes)) {
+      setVolumes(eventData.volumes.map((volume) => Number(volume)).filter((volume) => Number.isFinite(volume)));
     }
     if (Array.isArray(eventData.opponentTradeLogs) && eventData.opponentTradeLogs.length > 0) {
       appendGameLog(`상대 최근 거래: ${eventData.opponentTradeLogs.join(' | ')}`);
@@ -452,6 +502,8 @@ export default function StockGameTab({ loginId, initialRankScore = 0 }) {
   }
 
   function enterPreviewGame() {
+    const previewMarket = generateMockMarket();
+
     window.clearInterval(countdownTimerRef.current);
     window.clearTimeout(introExitTimerRef.current);
     setMatchMode('');
@@ -464,8 +516,7 @@ export default function StockGameTab({ loginId, initialRankScore = 0 }) {
     setIsInGame(true);
     setGameFinished(false);
     setRemainingSeconds(MATCH_SECONDS);
-    setMarketData(generateMockMarket());
-    setMarketIndex(0);
+    applyLocalMarketSnapshot(previewMarket, 0);
     setCash(STARTING_CASH);
     setOpponentCash(STARTING_CASH);
     setOpponentProfile({
@@ -503,13 +554,14 @@ export default function StockGameTab({ loginId, initialRankScore = 0 }) {
   }
 
   function enterInGameState() {
+    const previewMarket = generateMockMarket();
+
     setMatchMode('');
     setIsMatchmaking(false);
     setIsInGame(true);
     setGameFinished(false);
     setRemainingSeconds(MATCH_SECONDS);
-    setMarketData(generateMockMarket());
-    setMarketIndex(8);
+    applyLocalMarketSnapshot(previewMarket, 8);
     setCash(STARTING_CASH);
     setOpponentCash(STARTING_CASH);
     setOpponents([]);
@@ -981,6 +1033,8 @@ export default function StockGameTab({ loginId, initialRankScore = 0 }) {
   }
 
   const currentPrice = marketData.points[marketIndex] ?? marketData.points[0];
+  const displayedCurrentHighPrice = currentHighPrice || marketData.highPrices?.[marketIndex] || currentPrice;
+  const displayedCurrentLowPrice = currentLowPrice || marketData.lowPrices?.[marketIndex] || currentPrice;
   const totalAsset = cash + holdingQty * currentPrice;
   const pnl = holdingQty > 0 ? (currentPrice - avgPrice) * holdingQty : 0;
   const returnRate = holdingQty > 0 && avgPrice > 0 ? ((currentPrice - avgPrice) / avgPrice) * 100 : 0;
@@ -1019,6 +1073,39 @@ export default function StockGameTab({ loginId, initialRankScore = 0 }) {
       })),
     [marketData.points],
   );
+  const gameCandlestickPoints = useMemo(
+    () =>
+      marketData.points.map((value, index) => {
+        const open = Number(openPrices[index] ?? marketData.openPrices?.[index] ?? marketData.points[index - 1] ?? value);
+        const close = Number(value);
+        const high = Number(highPrices[index] ?? marketData.highPrices?.[index] ?? Math.max(open, close));
+        const low = Number(lowPrices[index] ?? marketData.lowPrices?.[index] ?? Math.min(open, close));
+
+        return {
+          time: index + 1,
+          open,
+          high,
+          low,
+          close,
+        };
+      }),
+    [highPrices, lowPrices, marketData.highPrices, marketData.lowPrices, marketData.openPrices, marketData.points, openPrices],
+  );
+  const gameVolumePoints = useMemo(
+    () =>
+      marketData.points.map((value, index) => {
+        const open = Number(openPrices[index] ?? marketData.openPrices?.[index] ?? marketData.points[index - 1] ?? value);
+        const close = Number(value);
+        const volumeValue = Number(volumes[index] ?? marketData.volumes?.[index] ?? 0);
+
+        return {
+          time: index + 1,
+          value: Math.max(0, volumeValue),
+          color: close >= open ? '#ff6d6f' : '#2f74ec',
+        };
+      }),
+    [marketData.openPrices, marketData.points, marketData.volumes, openPrices, volumes],
+  );
   const isMultiOpponentMatch = opponents.length > 1;
 
   if (isInGame) {
@@ -1027,36 +1114,36 @@ export default function StockGameTab({ loginId, initialRankScore = 0 }) {
         <div className="stock-game-overlay" />
         <div className="stock-game-content ingame pvp-ingame">
           <header className="pvp-head">
-            <h1>주식 게임</h1>
-            <div className="pvp-timer">{`${mm}:${ss}`}</div>
-          </header>
-
-          <div className="pvp-summary">
-            <article>
-              <span>내 자금</span>
-              <strong>{formatCurrency(cash)}</strong>
-            </article>
-            <article>
-              <span>총 보유자산</span>
-              <strong>{formatCurrency(totalAsset)}</strong>
-            </article>
-            <article>
-              {isMultiOpponentMatch ? (
-                <button type="button" className="pvp-summary-button" onClick={() => setOpponentDialog('cash')}>
-                  상대 자금
-                </button>
-              ) : (
-                <>
-                  <span>상대 자금</span>
-                  <strong>{formatCurrency(opponentCash)}</strong>
-                </>
-              )}
-            </article>
-            <article>
+            <div className="pvp-head-main">
+              <div className="pvp-timer">{`${mm}:${ss}`}</div>
+              <div className="pvp-summary pvp-summary--inline">
+                <article>
+                  <span>내 자금</span>
+                  <strong>{formatCurrency(cash)}</strong>
+                </article>
+                <article>
+                  <span>총 보유자산</span>
+                  <strong>{formatCurrency(totalAsset)}</strong>
+                </article>
+                <article>
+                  {isMultiOpponentMatch ? (
+                    <button type="button" className="pvp-summary-button" onClick={() => setOpponentDialog('cash')}>
+                      상대 자금
+                    </button>
+                  ) : (
+                    <>
+                      <span>상대 자금</span>
+                      <strong>{formatCurrency(opponentCash)}</strong>
+                    </>
+                  )}
+                </article>
+              </div>
+            </div>
+            <article className="pvp-rank-card">
               <span>현재 랭크</span>
               <strong>{`${currentRank} (${myRankScore}점)`}</strong>
             </article>
-          </div>
+          </header>
 
           <section className="pvp-layout">
             <div className="pvp-left">
@@ -1064,13 +1151,19 @@ export default function StockGameTab({ loginId, initialRankScore = 0 }) {
                 <div className="pvp-card-head">
                   <h2>{`${gameStockName || '게임 종목'} (${gameStockCode || '-'})`}</h2>
                   <p>
-                    {`${gameStockCode === 'FALLBACK' ? '테스트' : '실제'} ${lookbackYears}년 구간 · ${scenarioFrom || '-'} ~ ${scenarioTo || '-'} · 현재가 ${formatCurrency(currentPrice)}`}
+                    {`${gameStockCode === 'FALLBACK' ? '테스트' : '실제'} ${lookbackYears}년 구간 · ${scenarioFrom || '-'} ~ ${scenarioTo || '-'} · 현재가 ${formatCurrency(currentPrice)} · 고가 ${formatCurrency(displayedCurrentHighPrice)} · 저가 ${formatCurrency(displayedCurrentLowPrice)}`}
                   </p>
                 </div>
                 <RealtimePriceChart
                   companyName={gameStockName || gameStockCode || '게임 종목'}
                   points={gameChartPoints}
+                  candlestickPoints={gameCandlestickPoints}
+                  volumePoints={gameVolumePoints}
+                  averagePrice={holdingQty > 0 ? avgPrice : 0}
+                  pinFirstCandleLeft
                   currentPrice={currentPrice}
+                  currentHighPrice={displayedCurrentHighPrice}
+                  currentLowPrice={displayedCurrentLowPrice}
                   currentReturnRate={returnRate}
                   //changeRate={0}
                   isLoading={false}
@@ -1123,9 +1216,7 @@ export default function StockGameTab({ loginId, initialRankScore = 0 }) {
                         <span>{log.text}</span>
                       </li>
                     ))
-                  ) : (
-                    <li className="empty" aria-hidden="true" />
-                  )}
+                  ) : null}
                 </ul>
               </div>
 
@@ -1372,44 +1463,46 @@ export default function StockGameTab({ loginId, initialRankScore = 0 }) {
         </div>
       ) : (
         <div className="stock-game-content stock-game-match-screen">
-          <header className="stock-game-match-head">
-            <h2>{matchMode} 랭크 매치</h2>
-            <button type="button" onClick={closeModal} disabled={isMatchmaking}>
-              뒤로
-            </button>
-          </header>
+          <div className="stock-game-match-panel">
+            <header className="stock-game-match-head">
+              <h2>{matchMode} 랭크 매치</h2>
+              <button type="button" onClick={closeModal} disabled={isMatchmaking}>
+                뒤로
+              </button>
+            </header>
 
-          <div className="stock-game-rank-summary">
-            <p>{`현재 랭크: ${currentRank}`}</p>
-            <p>{`현재 점수: ${myRankScore}점`}</p>
-          </div>
+            <div className="stock-game-rank-summary">
+              <p>{`현재 랭크: ${currentRank}`}</p>
+              <p>{`현재 점수: ${myRankScore}점`}</p>
+            </div>
 
-          <div className="stock-game-rank-rule">
-            <p>{'랭크 티어: 브론즈 / 실버 / 골드 / 플래티넘 / 다이아'}</p>
-            <p>{'티어 점수 구간: 0~199 / 200~399 / 400~599 / 600~799 / 800+'}</p>
-            <p>
-              {matchMode === '1vs1'
-                ? '승리시 25점을 획득, 패배시 25점이 차감됩니다.'
-                : '5위: -10점 / 4위: 0점 / 3위: 10점 / 2위: 20점 / 1위: 30점'}
+            <div className="stock-game-rank-rule">
+              <p>{'랭크 티어: 브론즈 / 실버 / 골드 / 플래티넘 / 다이아'}</p>
+              <p>{'티어 점수 구간: 0~199 / 200~399 / 400~599 / 600~799 / 800+'}</p>
+              <p>
+                {matchMode === '1vs1'
+                  ? '승리시 25점을 획득, 패배시 25점이 차감됩니다.'
+                  : '5위: -10점 / 4위: 0점 / 3위: 10점 / 2위: 20점 / 1위: 30점'}
+              </p>
+            </div>
+
+            <p className="stock-game-match-desc">
+              {matchMode === '1vsALL'
+                ? '15분 동안 살아남아 가장 많은 수익을 만든 사람이 승리합니다! (5명이 매칭됩니다)'
+                : '15분 동안 상대보다 더 많은 수익을 만들면 승리합니다!'}
             </p>
+            <p className="stock-game-match-state">
+              {'이번 매치 종목: ' + (gameStockName || '매칭 시 공개') + ' (' + (gameStockCode || '-') + ')'}
+            </p>
+
+            {matchStatus ? <p className="stock-game-match-state">{matchStatus}</p> : null}
+            {countdownValue ? <p className="stock-game-countdown">{countdownValue}</p> : null}
+            {matchError ? <p className="stock-game-match-error">{matchError}</p> : null}
+
+            <button type="button" className="stock-game-match-button" onClick={startMatchmaking} disabled={isMatchmaking}>
+              {isMatchmaking ? '매치메이킹 중...' : '매치메이킹'}
+            </button>
           </div>
-
-          <p className="stock-game-match-desc">
-            {matchMode === '1vsALL'
-              ? '15분 동안 살아남아 가장 많은 수익을 만든 사람이 승리합니다! (5명이 매칭됩니다)'
-              : '15분 동안 상대보다 더 많은 수익을 만들면 승리합니다!'}
-          </p>
-          <p className="stock-game-match-state">
-            {'이번 매치 종목: ' + (gameStockName || '매칭 시 공개') + ' (' + (gameStockCode || '-') + ')'}
-          </p>
-
-          {matchStatus ? <p className="stock-game-match-state">{matchStatus}</p> : null}
-          {countdownValue ? <p className="stock-game-countdown">{countdownValue}</p> : null}
-          {matchError ? <p className="stock-game-match-error">{matchError}</p> : null}
-
-          <button type="button" className="stock-game-match-button" onClick={startMatchmaking} disabled={isMatchmaking}>
-            {isMatchmaking ? '매치메이킹 중...' : '매치메이킹'}
-          </button>
         </div>
       )}
 

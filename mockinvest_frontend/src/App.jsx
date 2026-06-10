@@ -5,7 +5,7 @@ import MyPageTab from './components/MyPageTab';
 import QuizTab from './components/QuizTab';
 import MissionTab from './components/MissionTab';
 import StockGameTab from './components/StockGameTab';
-import { isMockApiEnabled, mockCredentials, mockRequestApi } from './mockApi';
+
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://pbl2-a.onrender.com').replace(
   /\/$/,
@@ -32,6 +32,119 @@ const sideMenu = [
   { label: '미션', path: '/tutorial' },
 ];
 
+const STOCK_CATEGORY_GROUPS = [
+  {
+    key: 'largecap',
+    label: '대형주 / 대표주',
+    items: [
+      { stockCode: '005930', stockName: '삼성전자' },
+      { stockCode: '000660', stockName: 'SK하이닉스' },
+      { stockCode: '066570', stockName: 'LG전자' },
+      { stockCode: '005490', stockName: 'POSCO홀딩스' },
+    ],
+  },
+  {
+    key: 'it-platform',
+    label: 'IT/플랫폼',
+    items: [
+      { stockCode: '035420', stockName: '네이버' },
+      { stockCode: '035720', stockName: '카카오' },
+      { stockCode: '323410', stockName: '카카오뱅크' },
+      { stockCode: '181710', stockName: 'NHN' },
+    ],
+  },
+  {
+    key: 'battery-growth',
+    label: '2차전지/성장',
+    items: [
+      { stockCode: '373220', stockName: 'LG에너지솔루션' },
+      { stockCode: '006400', stockName: '삼성SDI' },
+      { stockCode: '086520', stockName: '에코프로' },
+      { stockCode: '247540', stockName: '에코프로비엠' },
+      { stockCode: '003670', stockName: '포스코퓨처엠' },
+    ],
+  },
+  {
+    key: 'auto-manufacturing',
+    label: '자동차/제조',
+    items: [
+      { stockCode: '005380', stockName: '현대차' },
+      { stockCode: '000270', stockName: '기아' },
+      { stockCode: '012330', stockName: '현대모비스' },
+    ],
+  },
+  {
+    key: 'bio-healthcare',
+    label: '바이오/헬스케어',
+    items: [
+      { stockCode: '207940', stockName: '삼성바이오로직스' },
+      { stockCode: '068270', stockName: '셀트리온' },
+      { stockCode: '000100', stockName: '유한양행' },
+      { stockCode: '128940', stockName: '한미약품' },
+    ],
+  },
+  {
+    key: 'entertainment',
+    label: '엔터/콘텐츠',
+    items: [
+      { stockCode: '352820', stockName: '하이브' },
+      { stockCode: '035900', stockName: 'JYP Ent.' },
+      { stockCode: '041510', stockName: 'SM Entertainment' },
+    ],
+  },
+  {
+    key: 'games',
+    label: '게임',
+    items: [
+      { stockCode: '259960', stockName: '크래프톤' },
+      { stockCode: '036570', stockName: '엔씨소프트' },
+      { stockCode: '263750', stockName: '펄어비스' },
+    ],
+  },
+  {
+    key: 'consumer-retail',
+    label: '소비재/유통',
+    items: [
+      { stockCode: '139480', stockName: '이마트' },
+      { stockCode: '090430', stockName: '아모레퍼시픽' },
+      { stockCode: '004370', stockName: '농심' },
+    ],
+  },
+  {
+    key: 'theme-volatility',
+    label: '변동성/테마',
+    items: [
+      { stockCode: '034020', stockName: '두산에너빌리티' },
+      { stockCode: '064350', stockName: '현대로템' },
+      { stockCode: '066970', stockName: '엘앤에프' },
+      { stockCode: '112040', stockName: '위메이드' },
+    ],
+  },
+  {
+    key: 'semiconductor',
+    label: '반도체',
+    items: [
+      { stockCode: '000990', stockName: 'DB하이텍' },
+      { stockCode: '058470', stockName: '리노공업' },
+      { stockCode: '003490', stockName: '대한항공' },
+    ],
+  },
+  {
+    key: 'finance-banks',
+    label: '금융/은행',
+    items: [
+      { stockCode: '105560', stockName: 'KB금융' },
+      { stockCode: '055550', stockName: '신한지주' },
+      { stockCode: '086790', stockName: '하나금융지주' },
+      { stockCode: '316140', stockName: '우리금융지주' },
+    ],
+  },
+];
+
+const STOCK_CATEGORY_BY_NAME = Object.fromEntries(
+  STOCK_CATEGORY_GROUPS.flatMap((group) => group.items.map((item) => [item.stockCode, group.key])),
+);
+
 function normalizeMenuPath(pathname) {
   if (!pathname || pathname === '/') {
     return DEFAULT_MENU_PATH;
@@ -56,10 +169,6 @@ async function readResponsePayload(response) {
 }
 
 async function requestApi(path, { method = 'GET', body, signal } = {}) {
-  if (isMockApiEnabled) {
-    return mockRequestApi(path, { method, body, signal });
-  }
-
   let response;
 
   try {
@@ -152,6 +261,7 @@ function normalizePostSummary(rawPost, index) {
     postId: String(postId),
     title: String(rawPost.title ?? '').trim() || `게시글 ${index + 1}`,
     author: String(rawPost.author ?? rawPost.loginId ?? '익명'),
+    category: String(rawPost.category ?? '').trim() || '일반',
     content: String(rawPost.content ?? '').trim(),
     stockCode: String(rawPost.stockCode ?? '').trim(),
     stockName: String(rawPost.stockName ?? '').trim(),
@@ -211,11 +321,11 @@ async function fetchPostDetail(postId, signal) {
   return normalizePostDetail(payload);
 }
 
-async function createPost({ title, content, author, stockCode, stockName, position, yield: yieldRate, signal }) {
+async function createPost({ category, title, content, author, stockCode, stockName, position, yield: yieldRate, signal }) {
   return requestApi('/posts', {
     method: 'POST',
     signal,
-    body: { title, content, author, stockCode, stockName, position, yield: yieldRate },
+    body: { category, title, content, author, stockCode, stockName, position, yield: yieldRate },
   });
 }
 
@@ -381,6 +491,10 @@ function formatCurrency(value) {
 
 function formatShares(value) {
   return `${new Intl.NumberFormat('ko-KR').format(value)}주`;
+}
+
+function findCategoryKeyByStockCode(stockCode) {
+  return STOCK_CATEGORY_BY_NAME[String(stockCode ?? '').trim()] ?? STOCK_CATEGORY_GROUPS[0].key;
 }
 
 function pushMenuState(path) {
@@ -617,17 +731,14 @@ function App() {
   const [authForm, setAuthForm] = useState({ nickname: '', loginId: '', password: '' });
   const [authUser, setAuthUser] = useState(null);
   const [authErrorMessage, setAuthErrorMessage] = useState('');
-  const [authHelperMessage, setAuthHelperMessage] = useState(() =>
-    isMockApiEnabled
-      ? `개발용 Mock 모드입니다. 기본 계정: ${mockCredentials.loginId} / ${mockCredentials.password}`
-      : '',
-  );
+  const [authHelperMessage, setAuthHelperMessage] = useState('');
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
   const [stocks, setStocks] = useState([]);
   const [holdings, setHoldings] = useState([]);
   const [priceHistory, setPriceHistory] = useState({});
   const [selectedStockCode, setSelectedStockCode] = useState('');
+  const [selectedCategoryKey, setSelectedCategoryKey] = useState(STOCK_CATEGORY_GROUPS[0].key);
   const [isLoadingStocks, setIsLoadingStocks] = useState(true);
   const [isLoadingHoldings, setIsLoadingHoldings] = useState(true);
   const [chartStatusMessage, setChartStatusMessage] = useState('');
@@ -648,6 +759,25 @@ function App() {
   const selectedStock = stocks.find((stock) => stock.stockCode === selectedStockCode) ?? stocks[0] ?? null;
   const chartPoints = selectedStock ? priceHistory[selectedStock.stockCode] ?? [] : [];
   const currentPrice = selectedStock?.currentPrice ?? 0;
+  const categorizedStocks = useMemo(() => {
+    const stockMapByCode = new Map(stocks.map((stock) => [stock.stockCode, stock]));
+
+    return STOCK_CATEGORY_GROUPS.map((group) => ({
+      ...group,
+      stocks: group.items.map((item) => {
+        const stock = stockMapByCode.get(item.stockCode) ?? null;
+
+        return {
+          stockName: stock?.stockName ?? item.stockName,
+          stock,
+          stockCode: item.stockCode,
+          isAvailable: Boolean(stock),
+        };
+      }),
+    }));
+  }, [stocks]);
+  const activeCategory =
+    categorizedStocks.find((group) => group.key === selectedCategoryKey) ?? categorizedStocks[0] ?? null;
 
   const portfolio = useMemo(() => {
     let totalAssets = 0;
@@ -731,7 +861,7 @@ function App() {
 
         setAuthUser(user);
         setAuthForm({ loginId: String(user?.loginId ?? ''), password: '' });
-        setAuthHelperMessage('');
+        setAuthHelperMessage('?????????.');
       } catch (error) {
         if (!isMounted || error.name === 'AbortError') {
           return;
@@ -776,6 +906,12 @@ function App() {
       setSelectedStockCode(stocks[0].stockCode);
     }
   }, [selectedStockCode, stocks]);
+
+  useEffect(() => {
+    if (selectedStock?.stockCode) {
+      setSelectedCategoryKey(findCategoryKeyByStockCode(selectedStock.stockCode));
+    }
+  }, [selectedStock]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -891,37 +1027,32 @@ function App() {
 
   async function handleAuthSubmit(event) {
     event.preventDefault();
-
     const nextNickname = authForm.nickname.trim();
     const nextLoginId = authForm.loginId.trim();
     const nextPassword = authForm.password.trim();
-
     if (!nextLoginId || !nextPassword) {
-      setAuthErrorMessage('아이디와 비밀번호를 모두 입력해 주세요.');
+      setAuthErrorMessage('???? ????? ?? ??? ???.');
       return;
     }
     if (authMode === 'register' && !nextNickname) {
-      setAuthErrorMessage('회원가입 시 닉네임을 입력해 주세요.');
+      setAuthErrorMessage('???? ? ???? ??? ???.');
       return;
     }
-
     setIsSubmittingAuth(true);
     setAuthErrorMessage('');
     setAuthHelperMessage('');
-
     try {
       if (authMode === 'register') {
         await registerUser({ loginId: nextLoginId, password: nextPassword, nickname: nextNickname });
-        setAuthHelperMessage('회원가입이 완료되었습니다. 같은 정보로 로그인합니다.');
+        setAuthHelperMessage('????? ???????. ?? ??? ??????.');
       }
-
       const user = await loginUser({ loginId: nextLoginId, password: nextPassword });
       setAuthUser(user);
       setAuthForm({ nickname: '', loginId: nextLoginId, password: '' });
       setActiveMenuPath(DEFAULT_MENU_PATH);
       pushMenuState(DEFAULT_MENU_PATH);
     } catch (error) {
-      setAuthErrorMessage(error.message || '인증 처리 중 오류가 발생했습니다.');
+      setAuthErrorMessage(error.message || '?? ?? ? ??? ??????.');
     } finally {
       setIsSubmittingAuth(false);
     }
@@ -941,7 +1072,7 @@ function App() {
       setAuthUser(null);
       setAuthMode('login');
       setAuthForm((current) => ({ ...current, password: '' }));
-      setAuthHelperMessage('로그아웃되었습니다.');
+      setAuthHelperMessage('?????????.');
       setAuthErrorMessage('');
       setActiveMenuPath(DEFAULT_MENU_PATH);
       pushMenuState(DEFAULT_MENU_PATH);
@@ -1088,85 +1219,138 @@ function App() {
 
   function renderTradingTab() {
     return (
-      <>
-        <header className="hero">
-          <div>
-            <p className="eyebrow">초보자도 쉽고 빠르게 익히는 모의 투자 경험</p>
-            <h1>주식 모의투자 트레이딩</h1>
-          </div>
-        </header>
+      <section className="trading-layout">
+        <div className="trading-main">
+          <header className="hero">
+            <div>
+              <h1>주식 모의투자 트레이딩</h1>
+            </div>
+          </header>
 
-        <div className="symbol-tabs" role="tablist" aria-label="종목 선택">
-          {displayedStocks.map((stock, index) => (
-            <button
-              key={stock.id}
-              className={selectedStock?.stockCode === stock.stockCode ? 'active' : ''}
-              type="button"
-              onClick={() => {
-                if (!stock.isPlaceholder) {
-                  setSelectedStockCode(stock.stockCode);
-                }
-              }}
-              disabled={stock.isPlaceholder}
-            >
-              <span className="symbol-slot-number">{String(stock.slot ?? index + 1).padStart(2, '0')}</span>
-              <span className="symbol-slot-label">
-                {stock.stockName || (isLoadingStocks ? '불러오는 중' : '대기 중')}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        <div className="summary-grid">
-          {summaryCards.map((card) => (
-            <article
-              key={card.label}
-              className={card.label === '보유 종목' ? 'summary-card clickable' : 'summary-card'}
-              onClick={card.label === '보유 종목' ? () => setIsHoldingsDialogOpen(true) : undefined}
-              role={card.label === '보유 종목' ? 'button' : undefined}
-              tabIndex={card.label === '보유 종목' ? 0 : undefined}
-              onKeyDown={
-                card.label === '보유 종목'
-                  ? (event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        setIsHoldingsDialogOpen(true);
+          <div className="summary-grid">
+            {summaryCards.map((card) => (
+              <article
+                key={card.label}
+                className={card.label === '보유 종목' ? 'summary-card clickable' : 'summary-card'}
+                onClick={card.label === '보유 종목' ? () => setIsHoldingsDialogOpen(true) : undefined}
+                role={card.label === '보유 종목' ? 'button' : undefined}
+                tabIndex={card.label === '보유 종목' ? 0 : undefined}
+                onKeyDown={
+                  card.label === '보유 종목'
+                    ? (event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setIsHoldingsDialogOpen(true);
+                        }
                       }
-                    }
-                  : undefined
-              }
-            >
-              <div className="card-top">
-                <span>{card.label}</span>
-                <span className="card-dot" />
-              </div>
-              <strong className={card.tone}>{card.value}</strong>
-              {card.sub ? <em className={card.tone}>{card.sub}</em> : null}
-            </article>
-          ))}
+                    : undefined
+                }
+              >
+                <div className="card-top">
+                  <span>{card.label}</span>
+                  <span className="card-dot" />
+                </div>
+                <strong className={card.tone}>{card.value}</strong>
+                {card.sub ? <em className={card.tone}>{card.sub}</em> : null}
+              </article>
+            ))}
+          </div>
+
+          <RealtimePriceChart
+            companyName={selectedStock?.stockName ?? '종목 선택'}
+            points={chartPoints}
+            currentPrice={currentPrice}
+            changeRate={selectedStock?.changeRate ?? 0}
+            isLoading={isLoadingStocks}
+            statusMessage={chartStatusMessage}
+            statusTone={chartStatusTone}
+            tradeFeedback={tradeFeedback}
+            onBuyClick={() => openTradeDialog('buy')}
+            onSellClick={() => openTradeDialog('sell')}
+            disableBuy={isLoadingStocks || !selectedStock || currentPrice <= 0 || isSubmittingTrade}
+            disableSell={
+              isLoadingStocks ||
+              !selectedStock ||
+              currentPrice <= 0 ||
+              selectedOwnedShares < 1 ||
+              isSubmittingTrade
+            }
+          />
         </div>
 
-        <RealtimePriceChart
-          companyName={selectedStock?.stockName ?? '종목 선택'}
-          points={chartPoints}
-          currentPrice={currentPrice}
-          changeRate={selectedStock?.changeRate ?? 0}
-          isLoading={isLoadingStocks}
-          statusMessage={chartStatusMessage}
-          statusTone={chartStatusTone}
-          tradeFeedback={tradeFeedback}
-          onBuyClick={() => openTradeDialog('buy')}
-          onSellClick={() => openTradeDialog('sell')}
-          disableBuy={isLoadingStocks || !selectedStock || currentPrice <= 0 || isSubmittingTrade}
-          disableSell={
-            isLoadingStocks ||
-            !selectedStock ||
-            currentPrice <= 0 ||
-            selectedOwnedShares < 1 ||
-            isSubmittingTrade
-          }
-        />
-      </>
+        <aside className="trading-browser">
+          <div className="trading-browser-head">
+            <strong>종목을 선택하세요</strong>
+          </div>
+
+          <div className="trading-category-accordion" role="tablist" aria-label="종목 카테고리">
+            {categorizedStocks.map((category) => {
+              const isOpen = category.key === selectedCategoryKey;
+
+              return (
+                <section
+                  key={category.key}
+                  className={['trading-category-section', isOpen ? 'open' : ''].filter(Boolean).join(' ')}
+                >
+                  <button
+                    type="button"
+                    className={['trading-category-trigger', isOpen ? 'active' : ''].filter(Boolean).join(' ')}
+                    onClick={() => setSelectedCategoryKey((current) => (current === category.key ? '' : category.key))}
+                    aria-expanded={isOpen}
+                  >
+                    <span>{category.label}</span>
+                    <em>{`${category.stocks.length}개`}</em>
+                  </button>
+
+                  <div className="trading-category-panel">
+                    <div className="trading-stock-list" role="list" aria-label={`${category.label} 종목 목록`}>
+                      {category.stocks.map((item, index) => {
+                        const isSelected = selectedStock?.stockCode === item.stockCode;
+
+                        return (
+                <button
+                  key={item.stockName}
+                  type="button"
+                  className={['trading-stock-item', isSelected ? 'active' : '', !item.isAvailable ? 'pending' : '']
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => {
+                    if (item.stockCode) {
+                      setSelectedStockCode(item.stockCode);
+                    }
+                  }}
+                  disabled={!item.isAvailable}
+                  role="listitem"
+                >
+                  <div className="trading-stock-item-head">
+                    <span>{String(index + 1).padStart(2, '0')}</span>
+                    <strong>{item.stockName}</strong>
+                  </div>
+                  <div className="trading-stock-item-meta">
+                    {item.isAvailable ? (
+                      <>
+                        <em>{formatCurrency(item.stock?.currentPrice ?? 0)}</em>
+                        <span className={(item.stock?.changeRate ?? 0) >= 0 ? 'up' : 'down'}>
+                          {`${(item.stock?.changeRate ?? 0) >= 0 ? '+' : ''}${Number(
+                            item.stock?.changeRate ?? 0,
+                          ).toFixed(2)}%`}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="pending-label">{isLoadingStocks ? '불러오는 중' : '대기 중'}</span>
+                    )}
+                  </div>
+                </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </aside>
+      </section>
     );
   }
 
@@ -1200,6 +1384,7 @@ function App() {
       case '/tutorial':
         return (
           <MissionTab
+            loginId={loginId}
             fetchMissions={(signal) => requestApi(`/missions/${encodeURIComponent(loginId)}`, { signal })}
             completeMission={(missionType, signal) => completeMission(loginId, missionType, signal)}
             claimMission={(missionType, signal) => claimMission(loginId, missionType, signal)}
@@ -1212,31 +1397,42 @@ function App() {
 
   return (
     <main className="app-shell">
-      <section className="dashboard">{renderMainCardContent()}</section>
-
-      <aside className="sidebar">
-        <div className="sidebar-inner">
-          <span className="menu-title">메뉴</span>
-          <nav>
-            {sideMenu.map((item) => (
-              <button
-                key={item.path}
-                className={['menu-item', activeMenuPath === item.path ? 'active' : ''].filter(Boolean).join(' ')}
-                type="button"
-                onClick={() => handleMenuSelect(item.path)}
-              >
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </nav>
-
-          <div className="sidebar-footer">
-            <button type="button" className="logout-button" onClick={() => handleMenuSelect('/logout')}>
-              로그아웃
-            </button>
-          </div>
+      <header className="topbar">
+        <div className="topbar-brand">
+          <p>주겜</p>
         </div>
-      </aside>
+
+        <nav className="topbar-nav" aria-label="주요 메뉴">
+          {sideMenu.map((item) => (
+            <button
+              key={item.path}
+              className={['menu-item', activeMenuPath === item.path ? 'active' : ''].filter(Boolean).join(' ')}
+              type="button"
+              onClick={() => handleMenuSelect(item.path)}
+            >
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="topbar-actions">
+          <button type="button" className="logout-button" onClick={() => handleMenuSelect('/logout')}>
+            로그아웃
+          </button>
+        </div>
+      </header>
+
+      <section
+        className={[
+          'dashboard',
+          activeMenuPath === '/trading' ? 'trading-dashboard' : '',
+          activeMenuPath === '/stock-game' ? 'stock-game-dashboard' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        {renderMainCardContent()}
+      </section>
 
       {tradeDialog ? (
         <TradeDialog
@@ -1260,3 +1456,9 @@ function App() {
 }
 
 export default App;
+
+
+
+
+
+

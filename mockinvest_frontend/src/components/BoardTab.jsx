@@ -1,5 +1,16 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 
+const POSTS_PER_PAGE = 10;
+const COMMENTS_PER_PAGE = 5;
+const BOARD_CATEGORIES = ['일반', '뉴스', '분석', '추천', '질문'];
+const BOARD_TABS = ['전체', ...BOARD_CATEGORIES];
+const BOARD_SEARCH_OPTIONS = [
+  { value: 'title', label: '제목' },
+  { value: 'titleContent', label: '제목/내용' },
+  { value: 'content', label: '내용' },
+  { value: 'author', label: '작성자' },
+];
+
 function formatDate(value) {
   if (!value) {
     return '-';
@@ -37,6 +48,102 @@ function formatCurrency(value) {
 
 function getErrorMessage(error, fallback) {
   return error instanceof Error ? error.message : fallback;
+}
+
+function extractYoutubeVideoId(value) {
+  const text = String(value ?? '').trim();
+
+  if (!text) {
+    return '';
+  }
+
+  try {
+    const url = new URL(text);
+    const host = url.hostname.replace(/^www\./, '');
+
+    if (host === 'youtu.be') {
+      return url.pathname.split('/').filter(Boolean)[0] ?? '';
+    }
+
+    if (host === 'youtube.com' || host === 'm.youtube.com') {
+      if (url.pathname === '/watch') {
+        return url.searchParams.get('v') ?? '';
+      }
+
+      const pathParts = url.pathname.split('/').filter(Boolean);
+      if (pathParts[0] === 'embed' || pathParts[0] === 'shorts') {
+        return pathParts[1] ?? '';
+      }
+    }
+  } catch (_error) {
+    return '';
+  }
+
+  return '';
+}
+
+function buildBoardContentBlocks(content) {
+  const normalizedContent = String(content ?? '').trim();
+
+  if (!normalizedContent) {
+    return [];
+  }
+
+  const urlPattern = /(https?:\/\/[^\s]+)/g;
+  const lines = normalizedContent.split('\n');
+  const blocks = [];
+
+  lines.forEach((line, lineIndex) => {
+    const trimmedLine = line.trim();
+
+    if (!trimmedLine) {
+      blocks.push({ type: 'spacer', key: `spacer-${lineIndex}` });
+      return;
+    }
+
+    const matches = [...trimmedLine.matchAll(urlPattern)];
+
+    if (!matches.length) {
+      blocks.push({ type: 'text', text: trimmedLine, key: `text-${lineIndex}` });
+      return;
+    }
+
+    let cursor = 0;
+    matches.forEach((match, matchIndex) => {
+      const [url] = match;
+      const startIndex = match.index ?? 0;
+      const beforeText = trimmedLine.slice(cursor, startIndex).trim();
+
+      if (beforeText) {
+        blocks.push({ type: 'text', text: beforeText, key: `text-${lineIndex}-${matchIndex}` });
+      }
+
+      const videoId = extractYoutubeVideoId(url);
+      if (videoId) {
+        blocks.push({
+          type: 'youtube',
+          url,
+          embedUrl: `https://www.youtube.com/embed/${videoId}`,
+          key: `youtube-${lineIndex}-${matchIndex}`,
+        });
+      } else {
+        blocks.push({ type: 'link', url, key: `link-${lineIndex}-${matchIndex}` });
+      }
+
+      cursor = startIndex + url.length;
+    });
+
+    const afterText = trimmedLine.slice(cursor).trim();
+    if (afterText) {
+      blocks.push({ type: 'text', text: afterText, key: `text-tail-${lineIndex}` });
+    }
+  });
+
+  return blocks;
+}
+
+function hasYoutubeContent(content) {
+  return buildBoardContentBlocks(content).some((block) => block.type === 'youtube');
 }
 
 function getPostSortValue(post) {
@@ -82,6 +189,7 @@ function toSummary(post) {
     postId: String(post.postId),
     title: post.title ?? '',
     author: post.author ?? '익명',
+    category: BOARD_CATEGORIES.includes(post.category) ? post.category : '일반',
     content: post.content ?? '',
     stockCode: post.stockCode ?? '',
     stockName: post.stockName ?? '',
@@ -114,6 +222,7 @@ function toggleLikeState(post, loginId) {
 
 function ComposePanel({ loginId, holdings, onSubmit, isSubmitting }) {
   const [selectedHoldingCode, setSelectedHoldingCode] = useState(holdings[0]?.stockCode ?? '');
+  const [category, setCategory] = useState('일반');
   const [position, setPosition] = useState('매수');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -134,6 +243,7 @@ function ComposePanel({ loginId, holdings, onSubmit, isSubmitting }) {
 
     setErrorMessage('');
     await onSubmit({
+      category,
       title: title.trim(),
       content: content.trim(),
       author: loginId,
@@ -200,6 +310,17 @@ function ComposePanel({ loginId, holdings, onSubmit, isSubmitting }) {
 
         <div className="board-field-row">
           <label className="board-field">
+            <span>카테고리</span>
+            <select value={category} onChange={(event) => setCategory(event.target.value)} disabled={isSubmitting}>
+              {BOARD_CATEGORIES.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="board-field">
             <span>포지션</span>
             <select value={position} onChange={(event) => setPosition(event.target.value)} disabled={isSubmitting}>
               <option value="매수">매수</option>
@@ -259,6 +380,8 @@ export default function BoardTab({
   const [posts, setPosts] = useState([]);
   const [selectedPostId, setSelectedPostId] = useState('');
   const [selectedPost, setSelectedPost] = useState(null);
+  const [searchType, setSearchType] = useState('title');
+  const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [commentDraft, setCommentDraft] = useState('');
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
@@ -269,6 +392,9 @@ export default function BoardTab({
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [commentPage, setCommentPage] = useState(1);
+  const [activeCategory, setActiveCategory] = useState('전체');
   const isComposeView = isComposerOpen;
   const isDetailView = Boolean(selectedPostId);
 
@@ -277,12 +403,32 @@ export default function BoardTab({
 
     return posts
       .filter((post) => {
+        const postCategory = BOARD_CATEGORIES.includes(post.category) ? post.category : '일반';
+
+        if (activeCategory !== '전체' && postCategory !== activeCategory) {
+          return false;
+        }
+
         if (!keyword) {
           return true;
         }
 
-        const target = `${post.title} ${post.author} ${post.stockName} ${post.stockCode}`.toLowerCase();
-        return target.includes(keyword);
+        const title = String(post.title ?? '').toLowerCase();
+        const content = String(post.content ?? '').toLowerCase();
+        const author = String(post.author ?? '').toLowerCase();
+
+        switch (searchType) {
+          case 'title':
+            return title.includes(keyword);
+          case 'titleContent':
+            return `${title} ${content}`.includes(keyword);
+          case 'content':
+            return content.includes(keyword);
+          case 'author':
+            return author.includes(keyword);
+          default:
+            return title.includes(keyword);
+        }
       })
       .sort((left, right) => {
         const leftValue = getPostSortValue(left);
@@ -294,7 +440,35 @@ export default function BoardTab({
 
         return String(rightValue).localeCompare(String(leftValue));
       });
-  }, [posts, searchTerm]);
+  }, [activeCategory, posts, searchTerm, searchType]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPosts.length / POSTS_PER_PAGE));
+  const pagedPosts = useMemo(() => {
+    const startIndex = (currentPage - 1) * POSTS_PER_PAGE;
+    return filteredPosts.slice(startIndex, startIndex + POSTS_PER_PAGE);
+  }, [currentPage, filteredPosts]);
+  const totalCommentPages = Math.max(1, Math.ceil((selectedPost?.comments?.length ?? 0) / COMMENTS_PER_PAGE));
+  const pagedComments = useMemo(() => {
+    const comments = Array.isArray(selectedPost?.comments) ? selectedPost.comments : [];
+    const startIndex = (commentPage - 1) * COMMENTS_PER_PAGE;
+    return comments.slice(startIndex, startIndex + COMMENTS_PER_PAGE);
+  }, [commentPage, selectedPost?.comments]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeCategory, searchTerm]);
+
+  useEffect(() => {
+    setCurrentPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
+
+  useEffect(() => {
+    setCommentPage(1);
+  }, [selectedPostId]);
+
+  useEffect(() => {
+    setCommentPage((current) => Math.min(current, totalCommentPages));
+  }, [totalCommentPages]);
 
   function openPostDetail(postId) {
     const nextPostId = String(postId ?? '').trim();
@@ -383,13 +557,12 @@ export default function BoardTab({
 
   function handleSearchSubmit(event) {
     event.preventDefault();
+    setSearchTerm(searchInput.trim());
+    setCurrentPage(1);
+  }
 
-    if (!filteredPosts.length) {
-      closeBoardOverlay();
-      return;
-    }
-
-    openPostDetail(filteredPosts[0].postId);
+  function handlePageChange(nextPage) {
+    setCurrentPage(Math.min(Math.max(1, nextPage), totalPages));
   }
 
   async function refreshSelectedPost(postId) {
@@ -465,10 +638,34 @@ export default function BoardTab({
 
     try {
       await createComment({ postId: selectedPostId, content: commentDraft.trim(), author: loginId });
-      setSelectedPost((prev) => ({
-              ...prev,
-              comments: [...prev.comments, { content: commentDraft.trim(), author: loginId, createdAt: new Date().toISOString() }]
-            }));
+      setSelectedPost((prev) => {
+        if (!prev) {
+          return prev;
+        }
+
+        const nextComments = [
+          ...(Array.isArray(prev.comments) ? prev.comments : []),
+          { content: commentDraft.trim(), author: loginId, createdAt: new Date().toISOString() },
+        ];
+
+        setCommentPage(Math.max(1, Math.ceil(nextComments.length / COMMENTS_PER_PAGE)));
+
+        return {
+          ...prev,
+          comments: nextComments,
+          commentCount: nextComments.length,
+        };
+      });
+      setPosts((currentPosts) =>
+        currentPosts.map((post) =>
+          post.postId === selectedPostId
+            ? {
+                ...post,
+                commentCount: (Number(post.commentCount ?? post.comments?.length ?? 0) || 0) + 1,
+              }
+            : post,
+        ),
+      );
       setCommentDraft('');
     } catch (error) {
       setErrorMessage(getErrorMessage(error, '댓글 등록에 실패했습니다.'));
@@ -478,134 +675,252 @@ export default function BoardTab({
   }
 
   const selectedLiked = selectedPost?.likedUsers?.includes(loginId);
+  const selectedPostContentBlocks = useMemo(
+    () => buildBoardContentBlocks(selectedPost?.content),
+    [selectedPost?.content],
+  );
 
   return (
     <section className="board-shell">
-      <header className="hero board-hero">
-        <div>
-          <p className="eyebrow">커뮤니티</p>
-          <h1>게시판</h1>
-        </div>
-        <button
-          type="button"
-          className="board-compose-button"
-          onClick={() => {
-            if (isDetailView || isComposeView) {
-              closeBoardOverlay();
-              return;
-            }
-
-            setIsComposerOpen(true);
-          }}
-        >
-          {isDetailView || isComposeView ? '뒤로가기' : '글쓰기'}
-        </button>
-      </header>
-
-      <section
-        className={[
-          'board-detail-panel',
-          'board-full-panel',
-          selectedPost ? 'board-detail-panel-active' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-      >
-        {!isDetailView && !isComposeView ? (
-          <form className="board-search" onSubmit={handleSearchSubmit}>
-            <input
-              type="search"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="제목, 작성자, 종목 검색"
-            />
-          </form>
-        ) : null}
-
-        {errorMessage ? <p className="board-inline-feedback error">{errorMessage}</p> : null}
-        {feedbackMessage ? <p className="board-inline-feedback">{feedbackMessage}</p> : null}
-
-        {isComposeView ? (
-          <ComposePanel
-            loginId={loginId}
-            holdings={holdings}
-            onSubmit={handleCreatePost}
-            isSubmitting={isSubmittingPost}
-          />
-        ) : !selectedPostId ? (
-          <div className="board-panel-scroll">
-            <div className="board-list">
-              {isLoadingPosts ? (
-                <div className="board-empty-state">
-                  <strong>게시글을 불러오는 중입니다.</strong>
-                </div>
-              ) : filteredPosts.length ? (
-                filteredPosts.map((post) => (
-                  <button
-                    key={post.postId}
-                    type="button"
-                    className={`board-post-card board-title-item ${selectedPostId === post.postId ? 'active' : ''}`}
-                    onClick={() => openPostDetail(post.postId)}
-                  >
-                    <div className="board-post-card-top">
-                      <span>{post.author || '익명'}</span>
-                      <span>{formatDate(post.createdAt)}</span>
-                    </div>
-                    <strong>{post.title}</strong>
-                  </button>
-                ))
-              ) : (
-                <div className="board-empty-state">
-                  <strong>표시할 게시글이 없습니다.</strong>
-                </div>
-              )}
+      <div className="board-frame-card">
+        <div className="board-main-card">
+          <header className="hero board-hero">
+            <div>
+              <h1>게시판</h1>
             </div>
-          </div>
-        ) : isLoadingDetail ? (
-          <div className="board-empty-state board-empty-fill">
-            <strong>상세 내용을 불러오는 중입니다.</strong>
-          </div>
-        ) : selectedPost ? (
-          <div className="board-detail-layout">
-            <div className="board-panel-scroll board-detail-scroll">
-              <div className="board-detail-head">
-                <div>
-                  <h2>{selectedPost.title}</h2>
-                  <p className="board-detail-date">{`${selectedPost.author} · ${formatDate(selectedPost.createdAt)}`}</p>
-                </div>
+            <button
+              type="button"
+              className="board-compose-button"
+              onClick={() => {
+                if (isDetailView || isComposeView) {
+                  closeBoardOverlay();
+                  return;
+                }
 
-                <div className="board-detail-metrics">
-                  <span>조회 {selectedPost.viewCount ?? 0}</span>
-                  <span>추천 {selectedPost.likeCount ?? 0}</span>
-                  <span>댓글 {selectedPost.comments?.length ?? 0}</span>
-                </div>
+                setIsComposerOpen(true);
+              }}
+            >
+              {isDetailView || isComposeView ? '뒤로가기' : '글쓰기'}
+            </button>
+          </header>
+
+          <section
+            className={[
+              'board-detail-panel',
+              'board-full-panel',
+              selectedPost ? 'board-detail-panel-active' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+          {!isDetailView && !isComposeView ? (
+            <>
+              <div className="board-category-tabs" role="tablist" aria-label="게시판 카테고리">
+                {BOARD_TABS.map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeCategory === category}
+                    className={activeCategory === category ? 'active' : ''}
+                    onClick={() => setActiveCategory(category)}
+                  >
+                    {category}
+                  </button>
+                ))}
               </div>
 
-              <div className="board-actions">
-                <div className="board-post-card-meta">
-                  <span>{selectedPost.position || '일반'}</span>
-                  <span>{selectedPost.stockName || '종목 없음'}</span>
-                  <span>{selectedPost.stockCode || '-'}</span>
-                  <span>{formatYield(selectedPost.yield ?? 0)}</span>
-                </div>
+              <form className="board-search" onSubmit={handleSearchSubmit}>
+                <select value={searchType} onChange={(event) => setSearchType(event.target.value)} aria-label="검색 조건">
+                  {BOARD_SEARCH_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="search"
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  placeholder="검색어를 입력하세요"
+                />
+                <button type="submit">검색</button>
+              </form>
+            </>
+          ) : null}
 
+          {errorMessage ? <p className="board-inline-feedback error">{errorMessage}</p> : null}
+          {feedbackMessage ? <p className="board-inline-feedback">{feedbackMessage}</p> : null}
+
+          {isComposeView ? (
+            <ComposePanel
+              loginId={loginId}
+              holdings={holdings}
+              onSubmit={handleCreatePost}
+              isSubmitting={isSubmittingPost}
+            />
+          ) : !selectedPostId ? (
+            <div className="board-panel-scroll">
+              <div className="board-list">
+                {isLoadingPosts ? (
+                  <div className="board-empty-state">
+                    <strong>게시글을 불러오는 중입니다.</strong>
+                  </div>
+                ) : filteredPosts.length ? (
+                  <>
+                    <div className="board-list-header" role="row">
+                      <span className="board-col-number">번호</span>
+                      <span className="board-col-title">제목</span>
+                      <span className="board-col-author">작성자</span>
+                      <span className="board-col-date">작성일</span>
+                      <span className="board-col-count">조회수</span>
+                      <span className="board-col-count">추천</span>
+                    </div>
+
+                    {pagedPosts.map((post, index) => {
+                      const rowNumber = filteredPosts.length - ((currentPage - 1) * POSTS_PER_PAGE + index);
+                      const includesVideo = hasYoutubeContent(post.content);
+
+                      return (
+                        <button
+                          key={post.postId}
+                          type="button"
+                          className={`board-post-row ${selectedPostId === post.postId ? 'active' : ''}`}
+                          onClick={() => openPostDetail(post.postId)}
+                        >
+                          <span className="board-col-number">{rowNumber}</span>
+                          <span className="board-col-title board-row-title">
+                            <em className="board-row-category">{post.category || '일반'}</em>
+                            {includesVideo ? <em className="board-row-video-badge">영상</em> : null}
+                            <strong>{post.title}</strong>
+                          </span>
+                          <span className="board-col-author">{post.author || '익명'}</span>
+                          <span className="board-col-date">{formatDate(post.createdAt)}</span>
+                          <span className="board-col-count">{post.viewCount ?? 0}</span>
+                          <span className="board-col-count">{post.likeCount ?? 0}</span>
+                        </button>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <div className="board-empty-state">
+                    <strong>표시할 게시글이 없습니다.</strong>
+                  </div>
+                )}
+              </div>
+              {!isLoadingPosts && filteredPosts.length ? (
+                <div className="board-pagination" aria-label="게시판 페이지 이동">
+                <button type="button" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
+                  이전
+                </button>
+                <div className="board-pagination-pages">
+                  {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+                    <button
+                      key={pageNumber}
+                      type="button"
+                      className={pageNumber === currentPage ? 'active' : ''}
+                      onClick={() => handlePageChange(pageNumber)}
+                    >
+                      {pageNumber}
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
-                  className={`board-like-button ${selectedLiked ? 'active' : ''}`}
-                  onClick={handleToggleLike}
-                  disabled={isSubmittingLike}
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
                 >
-                  {isSubmittingLike ? '처리 중...' : `추천 ${selectedPost.likeCount ?? 0}`}
+                  다음
                 </button>
-              </div>
+                </div>
+              ) : null}
+            </div>
+          ) : isLoadingDetail ? (
+            <div className="board-empty-state board-empty-fill">
+              <strong>상세 내용을 불러오는 중입니다.</strong>
+            </div>
+          ) : selectedPost ? (
+            <div className="board-detail-layout">
+              <div className="board-panel-scroll board-detail-scroll">
+                <div className="board-article-card">
+                <div className="board-detail-summary-card">
+                  <div className="board-detail-head">
+                    <div>
+                      <h2>{selectedPost.title}</h2>
+                      <p className="board-detail-date">{`${selectedPost.author} · ${formatDate(selectedPost.createdAt)}`}</p>
+                    </div>
 
-              <div className="board-article-card">
+                    <div className="board-detail-metrics">
+                      <span>조회 {selectedPost.viewCount ?? 0}</span>
+                      <span>추천 {selectedPost.likeCount ?? 0}</span>
+                      <span>댓글 {selectedPost.comments?.length ?? 0}</span>
+                    </div>
+                  </div>
+
+                  <div className="board-actions">
+                    <div className="board-post-card-meta">
+                      <span>{selectedPost.category || '일반'}</span>
+                      <span>{selectedPost.position || '일반'}</span>
+                      <span>{selectedPost.stockName || '종목 없음'}</span>
+                      <span>{selectedPost.stockCode || '-'}</span>
+                      <span>{formatYield(selectedPost.yield ?? 0)}</span>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="board-content-section">
                   <div className="board-section-head">
                     <h3>본문</h3>
                   </div>
                   <div className="board-content-box">
-                    <p>{selectedPost.content || '내용이 없습니다.'}</p>
+                    {selectedPostContentBlocks.length ? (
+                      selectedPostContentBlocks.map((block) => {
+                        if (block.type === 'spacer') {
+                          return <div key={block.key} className="board-content-spacer" aria-hidden="true" />;
+                        }
+
+                        if (block.type === 'youtube') {
+                          return (
+                            <div key={block.key} className="board-youtube-embed">
+                              <iframe
+                                src={block.embedUrl}
+                                title="게시판 유튜브 영상"
+                                loading="lazy"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                allowFullScreen
+                              />
+                              <a href={block.url} target="_blank" rel="noreferrer">
+                                {block.url}
+                              </a>
+                            </div>
+                          );
+                        }
+
+                        if (block.type === 'link') {
+                          return (
+                            <p key={block.key}>
+                              <a href={block.url} target="_blank" rel="noreferrer">
+                                {block.url}
+                              </a>
+                            </p>
+                          );
+                        }
+
+                        return <p key={block.key}>{block.text}</p>;
+                      })
+                    ) : (
+                      <p>내용이 없습니다.</p>
+                    )}
+                  </div>
+                  <div className="board-content-actions">
+                    <button
+                      type="button"
+                      className={`board-like-button ${selectedLiked ? 'active' : ''}`}
+                      onClick={handleToggleLike}
+                      disabled={isSubmittingLike}
+                    >
+                      {isSubmittingLike ? '처리 중...' : `추천 ${selectedPost.likeCount ?? 0}`}
+                    </button>
                   </div>
                 </div>
 
@@ -618,7 +933,7 @@ export default function BoardTab({
 
                     <div className="board-comments-list board-comments-list-inline">
                       {selectedPost.comments?.length ? (
-                        selectedPost.comments.map((comment, index) => (
+                        pagedComments.map((comment, index) => (
                           <article key={comment.id ?? `${comment.author}-${comment.createdAt ?? index}`} className="board-comment-card">
                             <strong>{comment.author}</strong>
                             <span className="board-detail-date">{formatDate(comment.createdAt)}</span>
@@ -629,30 +944,59 @@ export default function BoardTab({
                         <p className="board-empty">아직 댓글이 없습니다.</p>
                       )}
                     </div>
+
+                    {selectedPost.comments?.length > COMMENTS_PER_PAGE ? (
+                      <div className="board-pagination board-comment-pagination" aria-label="댓글 페이지 이동">
+                        <button type="button" onClick={() => setCommentPage((page) => page - 1)} disabled={commentPage === 1}>
+                          이전
+                        </button>
+                        <div className="board-pagination-pages">
+                          {Array.from({ length: totalCommentPages }, (_, index) => index + 1).map((pageNumber) => (
+                            <button
+                              key={pageNumber}
+                              type="button"
+                              className={pageNumber === commentPage ? 'active' : ''}
+                              onClick={() => setCommentPage(pageNumber)}
+                            >
+                              {pageNumber}
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setCommentPage((page) => page + 1)}
+                          disabled={commentPage === totalCommentPages}
+                        >
+                          다음
+                        </button>
+                      </div>
+                    ) : null}
+
+                    <form className="board-comment-form" onSubmit={handleCreateComment}>
+                      <textarea
+                        rows="3"
+                        value={commentDraft}
+                        onChange={(event) => setCommentDraft(event.target.value)}
+                        placeholder="댓글을 입력하세요"
+                        disabled={isSubmittingComment}
+                      />
+                      <button type="submit" disabled={isSubmittingComment}>
+                        {isSubmittingComment ? '등록 중...' : '댓글 등록'}
+                      </button>
+                    </form>
                   </div>
+                </div>
                 </div>
               </div>
             </div>
-
-            <form className="board-comment-form board-comment-form-docked" onSubmit={handleCreateComment}>
-              <textarea
-                rows="3"
-                value={commentDraft}
-                onChange={(event) => setCommentDraft(event.target.value)}
-                placeholder="댓글을 입력하세요"
-                disabled={isSubmittingComment}
-              />
-              <button type="submit" disabled={isSubmittingComment}>
-                {isSubmittingComment ? '등록 중...' : '댓글 등록'}
-              </button>
-            </form>
-          </div>
-        ) : (
-          <div className="board-empty-state board-empty-fill">
-            <strong>게시글을 선택해 주세요.</strong>
-          </div>
-        )}
-      </section>
+          ) : (
+            <div className="board-empty-state board-empty-fill">
+              <strong>게시글을 선택해 주세요.</strong>
+            </div>
+          )}
+          </section>
+        </div>
+      </div>
     </section>
   );
 }

@@ -24,6 +24,7 @@ public class Post {
     private String title;
     private String content;
     private String author;
+    private String category;
     private String stockCode;
     private String stockName;
     private String position;
@@ -36,10 +37,11 @@ public class Post {
     private List<Comment> comments = new ArrayList<>();
 
     @Builder
-    public Post(String title, String content, String author, String stockCode, String stockName, String position, Double yield) {
+    public Post(String title, String content, String author, String category, String stockCode, String stockName, String position, Double yield) {
         this.title = title;
         this.content = content;
         this.author = author;
+        this.category = category;
         this.stockCode = stockCode;
         this.stockName = stockName;
         this.position = position;

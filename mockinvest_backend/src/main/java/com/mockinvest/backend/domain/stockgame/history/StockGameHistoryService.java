@@ -165,7 +165,11 @@ public class StockGameHistoryService {
             int endIndex = Math.min(rows.size(), startIndex + 120);
             List<StockGameHistory> window = rows.subList(startIndex, endIndex);
 
+            List<Long> openPrices = window.stream().map(StockGameHistory::getOpenPrice).toList();
+            List<Long> highPrices = window.stream().map(StockGameHistory::getHighPrice).toList();
+            List<Long> lowPrices = window.stream().map(StockGameHistory::getLowPrice).toList();
             List<Long> closePrices = window.stream().map(StockGameHistory::getClosePrice).toList();
+            List<Long> volumes = window.stream().map(StockGameHistory::getVolume).toList();
             String stockName = resolveStockName(selectedCode, window.get(0).getStockName());
             LocalDate fromDate = window.get(0).getTradeDate();
             LocalDate toDate = window.get(window.size() - 1).getTradeDate();
@@ -176,7 +180,11 @@ public class StockGameHistoryService {
                     lookbackYears,
                     fromDate.toString(),
                     toDate.toString(),
-                    closePrices
+                    openPrices,
+                    highPrices,
+                    lowPrices,
+                    closePrices,
+                    volumes
             );
         }
 
@@ -338,7 +346,11 @@ public class StockGameHistoryService {
             int lookbackYears,
             String fromDate,
             String toDate,
-            List<Long> closePrices
+            List<Long> openPrices,
+            List<Long> highPrices,
+            List<Long> lowPrices,
+            List<Long> closePrices,
+            List<Long> volumes
     ) {
     }
 }

@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import './MyPageTab.css';
-import { isMockApiEnabled, mockFetchMyPageDashboard } from '../mockApi';
 
 function buildApiUrl(baseUrl, path) {
   const normalizedBase = (baseUrl || '').replace(/\/$/, '');
@@ -18,10 +17,6 @@ async function readResponsePayload(response) {
 }
 
 async function fetchMyPageDashboard(apiBaseUrl, signal) {
-  if (isMockApiEnabled) {
-    return mockFetchMyPageDashboard(signal);
-  }
-
   let response;
 
   try {
@@ -111,10 +106,37 @@ function normalizePost(post, index) {
   };
 }
 
-function normalizeMissionStatus(missionStatus) {
+function getAttendanceStorageKey(loginId) {
+  return `mission-attendance-claimed:${String(loginId ?? 'guest').trim() || 'guest'}`;
+}
+
+function getTodayKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function readAttendanceClaimed(loginId) {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  try {
+    return window.localStorage.getItem(getAttendanceStorageKey(loginId)) === getTodayKey();
+  } catch (_error) {
+    return false;
+  }
+}
+
+function normalizeMissionStatus(missionStatus, loginId) {
   const rawMission = missionStatus && typeof missionStatus === 'object' ? missionStatus : {};
+  const attendanceClaimed = readAttendanceClaimed(loginId);
 
   return {
+    attendanceCompleted: true,
+    attendanceClaimed,
     buyCompleted: Boolean(rawMission.buyCompleted),
     buyClaimed: Boolean(rawMission.buyClaimed),
     sellCompleted: Boolean(rawMission.sellCompleted),
@@ -143,7 +165,7 @@ function normalizeDashboard(payload, fallbackLoginId) {
     totalInvestment: Number(payload?.totalInvestment ?? 0),
     totalYield: Number(payload?.totalYield ?? 0),
     myStocks: Array.isArray(payload?.myStocks) ? payload.myStocks.map(normalizeStock) : [],
-    missionStatus: normalizeMissionStatus(payload?.missionStatus),
+    missionStatus: normalizeMissionStatus(payload?.missionStatus, fallbackLoginId),
     myPosts: Array.isArray(payload?.myPosts) ? payload.myPosts.map(normalizePost) : [],
     matchHistories: matchHistories.map((history, index) => ({
       id: String(history?.roomId ?? `history-${index}`),
@@ -167,13 +189,14 @@ function normalizeDashboard(payload, fallbackLoginId) {
 }
 
 const missionDefinitions = [
-  { key: 'buy', label: '매수 미션' },
-  { key: 'sell', label: '매도 미션' },
-  { key: 'quiz', label: '퀴즈 미션' },
-  { key: 'like', label: '좋아요 미션' },
-  { key: 'post', label: '게시글 미션' },
-  { key: 'comment', label: '댓글 미션' },
-  { key: 'game', label: '미니게임 미션' },
+  { key: 'attendance', label: '출석 체크' },
+  { key: 'buy', label: '매수하기' },
+  { key: 'sell', label: '매도하기' },
+  { key: 'quiz', label: '퀴즈 풀기' },
+  { key: 'like', label: '추천 누르기' },
+  { key: 'post', label: '게시글 작성하기' },
+  { key: 'comment', label: '댓글 작성하기' },
+  { key: 'game', label: '미니게임 플레이하기' },
 ];
 
 function EmptyState({ title, description }) {
@@ -369,9 +392,20 @@ export default function MyPageTab({ apiBaseUrl, loginId }) {
                     key={mission.key}
                     className={`mypage-mission-item ${completed ? 'completed' : ''} ${claimed ? 'claimed' : ''}`}
                   >
-                    <strong>{mission.label}</strong>
-                    <span>{completed ? '완료' : '진행 중'}</span>
-                    <em>{claimed ? '보상 수령 완료' : '보상 미수령'}</em>
+                    <div className="mypage-mission-item-head">
+                      <strong>{mission.label}</strong>
+                      <span className={`mypage-mission-status-badge ${claimed ? 'claimed' : completed ? 'completed' : 'pending'}`}>
+                        {claimed ? '수령 완료' : completed ? '완료' : '진행 중'}
+                      </span>
+                    </div>
+                    <div className="mypage-mission-state-line">
+                      <span className="mypage-mission-state-icon" aria-hidden="true">
+                        {claimed ? '✓' : completed ? '●' : '○'}
+                      </span>
+                      <span className="mypage-mission-state-text">
+                        {claimed ? '보상 수령 완료' : completed ? '미션 완료' : '진행 중'}
+                      </span>
+                    </div>
                   </article>
                 );
               })}
@@ -460,3 +494,6 @@ export default function MyPageTab({ apiBaseUrl, loginId }) {
     </section>
   );
 }
+
+
+

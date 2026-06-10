@@ -3,6 +3,7 @@ package com.mockinvest.backend.domain.stockgame;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mockinvest.backend.domain.member.MemberRepository;
+import com.mockinvest.backend.domain.mission.MissionService;
 import com.mockinvest.backend.domain.stockgame.history.StockGameMatchHistory1vs1Repository;
 import com.mockinvest.backend.domain.stockgame.history.StockGameHistoryService;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,8 +29,9 @@ class StockGameMatchServiceTest {
     private final StockGameHistoryService stockGameHistoryService = mock(StockGameHistoryService.class);
     private final MemberRepository memberRepository = mock(MemberRepository.class);
     private final StockGameMatchHistory1vs1Repository stockGameMatchHistory1vs1Repository = mock(StockGameMatchHistory1vs1Repository.class);
+    private final MissionService missionService = mock(MissionService.class);
     private final StockGameMatchService stockGameMatchService =
-            new StockGameMatchService(objectMapper, stockGameHistoryService, memberRepository, stockGameMatchHistory1vs1Repository);
+            new StockGameMatchService(objectMapper, stockGameHistoryService, memberRepository, stockGameMatchHistory1vs1Repository, missionService);
     private final List<WebSocketSession> openedSessions = new ArrayList<>();
 
     @BeforeEach
@@ -41,7 +43,11 @@ class StockGameMatchServiceTest {
                 1,
                 "2025-01-01",
                 "2025-06-30",
-                List.of(100_000L, 101_000L, 102_000L, 99_000L, 103_000L)
+                List.of(99_000L, 100_500L, 101_000L, 101_500L, 100_000L),
+                List.of(101_000L, 102_000L, 103_000L, 103_500L, 104_000L),
+                List.of(98_500L, 100_000L, 100_500L, 98_500L, 99_500L),
+                List.of(100_000L, 101_000L, 102_000L, 99_000L, 103_000L),
+                List.of(1_250_000L, 1_180_000L, 1_420_000L, 1_360_000L, 1_510_000L)
         );
 
         when(stockGameHistoryService.getSupportedStockCodes()).thenReturn(supportedCodes);
@@ -74,6 +80,11 @@ class StockGameMatchServiceTest {
         assertThat(firstMatched.get("roomId").asText()).isNotBlank();
         assertThat(secondMatched.get("roomId").asText()).isNotBlank();
         assertThat(firstMatched.get("roomId").asText()).isEqualTo(secondMatched.get("roomId").asText());
+        assertThat(firstMatched.path("currentHighPrice").asLong()).isEqualTo(101_000L);
+        assertThat(firstMatched.path("currentLowPrice").asLong()).isEqualTo(98_500L);
+        assertThat(firstMatched.path("highPrices").size()).isEqualTo(1);
+        assertThat(firstMatched.path("lowPrices").size()).isEqualTo(1);
+        assertThat(firstMatched.path("volumes").size()).isEqualTo(1);
     }
 
     private CapturedSession createSession(String sessionId) throws Exception {

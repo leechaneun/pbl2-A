@@ -15,6 +15,10 @@ public class RoomState {
     private final List<PlayerState> players;
     private final List<Long> prices = new ArrayList<>();
     private final List<Long> scenarioPrices;
+    private final List<Long> scenarioOpenPrices;
+    private final List<Long> scenarioHighPrices;
+    private final List<Long> scenarioLowPrices;
+    private final List<Long> scenarioVolumes;
     private final String stockCode;
     private final String stockName;
     private final String scenarioFrom;
@@ -24,6 +28,14 @@ public class RoomState {
     private int remainingSeconds;
     @Setter
     private long currentPrice;
+    @Setter
+    private long currentOpenPrice;
+    @Setter
+    private long currentHighPrice;
+    @Setter
+    private long currentLowPrice;
+    @Setter
+    private long currentVolume;
     @Setter
     private boolean tradeLocked;
     @Setter
@@ -37,6 +49,10 @@ public class RoomState {
             List<PlayerState> players,
             int matchSeconds,
             List<Long> scenarioPrices,
+            List<Long> scenarioOpenPrices,
+            List<Long> scenarioHighPrices,
+            List<Long> scenarioLowPrices,
+            List<Long> scenarioVolumes,
             String stockCode,
             String stockName,
             String scenarioFrom,
@@ -47,6 +63,10 @@ public class RoomState {
         this.mode = mode;
         this.players = players;
         this.scenarioPrices = scenarioPrices == null ? List.of() : scenarioPrices;
+        this.scenarioOpenPrices = scenarioOpenPrices == null ? List.of() : scenarioOpenPrices;
+        this.scenarioHighPrices = scenarioHighPrices == null ? List.of() : scenarioHighPrices;
+        this.scenarioLowPrices = scenarioLowPrices == null ? List.of() : scenarioLowPrices;
+        this.scenarioVolumes = scenarioVolumes == null ? List.of() : scenarioVolumes;
         this.stockCode = stockCode;
         this.stockName = stockName;
         this.scenarioFrom = scenarioFrom;
@@ -54,6 +74,10 @@ public class RoomState {
         this.lookbackYears = lookbackYears;
         this.remainingSeconds = matchSeconds;
         this.currentPrice = this.scenarioPrices.isEmpty() ? 100_000L : this.scenarioPrices.get(0);
+        this.currentOpenPrice = this.scenarioOpenPrices.isEmpty() ? this.currentPrice : this.scenarioOpenPrices.get(0);
+        this.currentHighPrice = this.scenarioHighPrices.isEmpty() ? this.currentPrice : this.scenarioHighPrices.get(0);
+        this.currentLowPrice = this.scenarioLowPrices.isEmpty() ? this.currentPrice : this.scenarioLowPrices.get(0);
+        this.currentVolume = this.scenarioVolumes.isEmpty() ? 0L : this.scenarioVolumes.get(0);
         this.tradeLocked = false;
         this.finished = false;
         this.prices.add(this.currentPrice);

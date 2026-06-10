@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 
 function normalizeQuizItem(rawQuiz, index) {
   const question =
@@ -174,14 +174,14 @@ export default function QuizTab({ fetchQuizzes, completeMission }) {
   if (viewMode === 'landing') {
     return (
       <section className="quiz-shell quiz-intro-shell">
-        <header className="hero quiz-hero quiz-intro-hero">
-          <div>
-            <p className="eyebrow">학습 퀴즈</p>
-            <h1>주식 용어 퀴즈</h1>
-            <p className="quiz-preview-description">전문적 용어부터 커뮤니티 용어까지 알아보세요</p>
-          </div>
-        </header>
         <article className="quiz-card quiz-preview-card quiz-intro-card">
+          <header className="hero quiz-hero quiz-intro-hero">
+            <div>
+              <h1>주식 용어 퀴즈</h1>
+              <p className="quiz-preview-description">전문적 용어부터 커뮤니티 용어까지 알아보세요</p>
+            </div>
+          </header>
+
           <div className="quiz-actions quiz-intro-actions">
             <button type="button" onClick={handleOpenTypeSelect}>
               퀴즈 풀기
@@ -197,7 +197,6 @@ export default function QuizTab({ fetchQuizzes, completeMission }) {
       <section className="quiz-shell quiz-intro-shell">
         <header className="hero quiz-hero quiz-intro-hero">
           <div>
-            <p className="eyebrow">학습 퀴즈</p>
             <h1>퀴즈 종류 선택</h1>
           </div>
         </header>
@@ -244,7 +243,6 @@ export default function QuizTab({ fetchQuizzes, completeMission }) {
     <section className="quiz-shell">
       <header className="hero quiz-hero">
         <div>
-          <p className="eyebrow">학습 퀴즈</p>
           <h1>단어 퀴즈</h1>
           <p className="quiz-preview-description">{`선택한 종류: ${selectedType || 'MIX'}`}</p>
         </div>
