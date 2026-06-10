@@ -10,6 +10,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +34,7 @@ public class Post {
 
     @Field("createdAt")
     private String createdAt =
-            LocalDateTime.now()
+            LocalDateTime.now(ZoneId.of("Asia/Seoul"))
                     .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
 
@@ -54,7 +55,9 @@ public class Post {
         this.stockName = stockName;
         this.position = position;
         this.yield = yield;
-        this.createdAt = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        this.createdAt =
+                LocalDateTime.now(ZoneId.of("Asia/Seoul"))
+                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
 
     }
@@ -73,7 +76,8 @@ public class Post {
 
     // [비즈니스 로직] 댓글 추가
     public void addComment(String content, String author) {
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        String timestamp = LocalDateTime.now(ZoneId.of("Asia/Seoul"))
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
         this.comments.add(new Comment(content, author, timestamp));
     }
 
