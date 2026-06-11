@@ -1031,11 +1031,11 @@ function App() {
     const nextLoginId = authForm.loginId.trim();
     const nextPassword = authForm.password.trim();
     if (!nextLoginId || !nextPassword) {
-      setAuthErrorMessage('???? ????? ?? ??? ???.');
+      setAuthErrorMessage('아이디와 비밀번호를 모두 입력해 주세요.');
       return;
     }
     if (authMode === 'register' && !nextNickname) {
-      setAuthErrorMessage('???? ? ???? ??? ???.');
+      setAuthErrorMessage('회원가입 시 닉네임을 입력해 주세요.');
       return;
     }
     setIsSubmittingAuth(true);
@@ -1044,7 +1044,7 @@ function App() {
     try {
       if (authMode === 'register') {
         await registerUser({ loginId: nextLoginId, password: nextPassword, nickname: nextNickname });
-        setAuthHelperMessage('????? ???????. ?? ??? ??????.');
+        setAuthHelperMessage('회원가입이 완료되었습니다. 같은 정보로 로그인합니다.');
       }
       const user = await loginUser({ loginId: nextLoginId, password: nextPassword });
       setAuthUser(user);
@@ -1052,7 +1052,7 @@ function App() {
       setActiveMenuPath(DEFAULT_MENU_PATH);
       pushMenuState(DEFAULT_MENU_PATH);
     } catch (error) {
-      setAuthErrorMessage(error.message || '?? ?? ? ??? ??????.');
+      setAuthErrorMessage(error.message || '인증 처리 중 오류가 발생했습니다.');
     } finally {
       setIsSubmittingAuth(false);
     }
