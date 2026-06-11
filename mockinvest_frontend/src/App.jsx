@@ -861,7 +861,7 @@ function App() {
 
         setAuthUser(user);
         setAuthForm({ loginId: String(user?.loginId ?? ''), password: '' });
-        setAuthHelperMessage('?????????.');
+        setAuthHelperMessage('');
       } catch (error) {
         if (!isMounted || error.name === 'AbortError') {
           return;
@@ -1072,7 +1072,7 @@ function App() {
       setAuthUser(null);
       setAuthMode('login');
       setAuthForm((current) => ({ ...current, password: '' }));
-      setAuthHelperMessage('?????????.');
+      setAuthHelperMessage('로그아웃되었습니다.');
       setAuthErrorMessage('');
       setActiveMenuPath(DEFAULT_MENU_PATH);
       pushMenuState(DEFAULT_MENU_PATH);
